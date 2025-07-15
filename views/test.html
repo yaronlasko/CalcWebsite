@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculus Detection - Test</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👥 Test System</h1>
+        </header>
+        
+        <main>
+            <div class="user-selection">
+                <h2>Select User Number</h2>
+                <p>Enter your user ID and password to begin annotation testing</p>
+                
+                <form id="userForm">
+                    <div class="input-group">
+                        <label for="userId">User ID:</label>
+                        <input type="number" id="userId" min="1" max="100" required>
+                        <small>Please select a user ID between 1 and 100</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="userPassword">Password:</label>
+                        <input type="password" id="userPassword" maxlength="4" required>
+                        <small>Enter your 4-digit password</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Start Testing</button>
+                </form>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/test.js"></script>
+</body>
+</html>

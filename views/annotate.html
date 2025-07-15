@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculus Detection - Annotate</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/annotation.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✏️ Image Annotation</h1>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/detect">Detect</a>
+                <a href="/test">Test</a>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="annotation-interface">
+                <div class="image-grid" id="imageGrid">
+                    <!-- Images will be loaded here -->
+                </div>
+                
+                <div class="annotation-modal" id="annotationModal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Annotate Image</h3>
+                            <span class="close" id="closeModal">&times;</span>
+                        </div>
+                        
+                        <div class="annotation-tools">
+                            <div class="tool-group">
+                                <label>Mode:</label>
+                                <button id="paintMode" class="btn btn-primary active">Paint</button>
+                                <button id="moveMode" class="btn btn-secondary">Move</button>
+                            </div>
+                            
+                            <div class="tool-group">
+                                <label for="brushSize">Brush Size:</label>
+                                <input type="range" id="brushSize" min="1" max="50" value="10">
+                                <span id="brushSizeValue">10</span>
+                            </div>
+                            
+                            <div class="tool-group">
+                                <button id="clearCanvas" class="btn btn-warning">Clear</button>
+                                <button id="saveAnnotation" class="btn btn-success">Save</button>
+                            </div>
+                        </div>
+                        
+                        <div class="canvas-container">
+                            <div class="zoom-controls">
+                                <div class="zoom-slider-container">
+                                    <div class="zoom-value" id="zoomValue">100%</div>
+                                    <input type="range" id="zoomSlider" class="zoom-slider" min="25" max="300" value="100" orient="vertical">
+                                    <button id="zoomReset" class="zoom-reset">Reset</button>
+                                </div>
+                            </div>
+                            <div class="canvas-wrapper" id="canvasWrapper">
+                                <canvas id="imageCanvas"></canvas>
+                                <canvas id="annotationCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/annotation.js"></script>
+    <script src="/static/js/direct-annotation.js"></script>
+</body>
+</html>

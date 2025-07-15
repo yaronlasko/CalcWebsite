@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculus Detection - AI Model</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Calculus Detection</h1>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/test">Test</a>
+                <a href="/annotate">Annotate</a>
+            </nav>
+        </header>
+        
+        <main>
+            <div class="upload-section">
+                <h2>🔍 AI-Powered Calculus Detection</h2>
+                <p>Upload an intraoral image to detect and analyze dental calculus using our advanced AI model</p>
+                <div class="info-box">
+                    <h3>How it works:</h3>
+                    <ol>
+                        <li>Upload a clear intraoral image</li>
+                        <li>Our AI will detect individual teeth using YOLO</li>
+                        <li>Each tooth is analyzed for calculus using U-Net</li>
+                        <li>Results show percentage coverage and severity</li>
+                    </ol>
+                </div>
+                
+                <form id="detectForm" enctype="multipart/form-data">
+                    <div class="upload-area" id="uploadArea">
+                        <p>📸 Click to upload or drag and drop an image</p>
+                        <p class="file-types">Supported formats: JPG, PNG, JPEG</p>
+                        <input type="file" id="imageInput" accept="image/*" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">🚀 Analyze Image</button>
+                </form>
+                
+                <div id="results" class="results-section" style="display: none;">
+                    <h3>Detection Results</h3>
+                    <div id="resultContent"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/static/js/detect.js"></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculus Detection</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Calculus Detection</h1>
+            <p>Advanced AI-powered calculus detection and annotation platform</p>
+        </header>
+        
+        <main>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h2>🔍 Detect</h2>
+                    <p>Upload images to detect calculus using our AI model</p>
+                    <a href="/detect" class="btn btn-primary">Start Detection</a>
+                </div>
+                
+                <div class="feature-card">
+                    <h2>👥 Test</h2>
+                    <p>User-based annotation system for testing and validation</p>
+                    <a href="/test" class="btn btn-primary">Join Test</a>
+                </div>
+                
+                <div class="feature-card">
+                    <h2>✏️ Annotate</h2>
+                    <p>Direct image annotation without user registration</p>
+                    <a href="/annotate" class="btn btn-primary">Start Annotating</a>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 Calculus Detection Platform - Yearly Project</p>
+            <button id="adminBtn" class="admin-btn">Admin Login</button>
+        </footer>
+        
+        <!-- Admin Login Modal -->
+        <div id="adminModal" class="admin-modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Admin Login</h3>
+                    <span class="close" id="closeAdminModal">&times;</span>
+                </div>
+                <form id="adminForm">
+                    <div class="input-group">
+                        <label for="adminUsername">Username:</label>
+                        <input type="text" id="adminUsername" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="adminPassword">Password:</label>
+                        <input type="password" id="adminPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            // Admin login functionality
+            document.getElementById('adminBtn').addEventListener('click', function() {
+                document.getElementById('adminModal').style.display = 'block';
+            });
+            
+            document.getElementById('closeAdminModal').addEventListener('click', function() {
+                document.getElementById('adminModal').style.display = 'none';
+            });
+            
+            document.getElementById('adminForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('adminUsername').value;
+                const password = document.getElementById('adminPassword').value;
+                
+                fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, password })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '/view';
+                    } else {
+                        alert('Invalid credentials');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Login failed');
+                });
+            });
+            
+            // Close modal when clicking outside
+            window.addEventListener('click', function(e) {
+                const modal = document.getElementById('adminModal');
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        </script>
+    </div>
+</body>
+</html>

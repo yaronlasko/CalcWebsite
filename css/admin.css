@@ -1,0 +1,460 @@
+/* Admin-specific styles */
+.admin-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.admin-dashboard {
+    padding: 2rem 0;
+}
+
+.stats-section {
+    margin-bottom: 3rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.stat-card h3 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card p {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+    margin: 0;
+}
+
+.annotations-section {
+    margin-bottom: 3rem;
+}
+
+.annotations-section h2 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #667eea;
+}
+
+.annotations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.annotation-item {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+.annotation-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.annotation-preview {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    background: #f5f5f5;
+}
+
+.annotation-info {
+    padding: 1rem;
+}
+
+.annotation-info h4 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.annotation-meta {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.user-badge {
+    background: #667eea;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.source-badge {
+    background: #28a745;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-top: 0.5rem;
+    margin-left: 0.5rem;
+}
+
+.source-badge.test {
+    background: #ffc107;
+    color: #212529;
+}
+
+.source-badge.annotate {
+    background: #28a745;
+}
+
+/* Image Modal */
+.image-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.image-modal .modal-content {
+    background: white;
+    border-radius: 10px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.image-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #eee;
+}
+
+.image-modal .modal-header h3 {
+    color: #667eea;
+    margin: 0;
+}
+
+.image-modal .close {
+    font-size: 2rem;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.3s;
+}
+
+.image-modal .close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.annotation-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.detail-item {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+.detail-item strong {
+    color: #667eea;
+}
+
+.image-display {
+    text-align: center;
+}
+
+.image-display img {
+    max-width: 100%;
+    max-height: 60vh;
+    border-radius: 5px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Admin image display with zoom */
+.image-display {
+    position: relative;
+    overflow: hidden;
+    max-height: 70vh;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #f8f9fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.admin-image-wrapper {
+    position: relative;
+    display: inline-block;
+    transform-origin: center center;
+    transition: transform 0.1s ease-out;
+    cursor: grab;
+}
+
+.admin-image-wrapper:active {
+    cursor: grabbing;
+}
+
+.admin-image-wrapper img {
+    max-width: none;
+    max-height: none;
+    border-radius: 4px;
+    display: block;
+}
+
+.empty-state {
+    text-align: center;
+    color: #666;
+    padding: 2rem;
+    font-style: italic;
+}
+
+/* Admin zoom controls */
+.image-display .zoom-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000; /* High z-index to ensure it's on top */
+}
+
+.image-display .zoom-slider-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.image-display .zoom-slider {
+    writing-mode: bt-lr; /* IE */
+    writing-mode: vertical-lr; /* Standard */
+    width: 4px;
+    height: 100px;
+    background: #ddd;
+    outline: none;
+    border-radius: 2px;
+}
+
+.image-display .zoom-value {
+    font-size: 12px;
+    font-weight: bold;
+    color: #667eea;
+    text-align: center;
+}
+
+.image-display .zoom-reset {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.image-display .zoom-reset:hover {
+    background: #5a6fd8;
+}
+
+/* Images list for admin */
+.images-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.image-item {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+.image-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.image-preview {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    background: #f5f5f5;
+}
+
+.image-info {
+    padding: 1rem;
+}
+
+.image-info h4 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.image-meta {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.25rem;
+}
+
+.image-list-item {
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+.image-list-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.image-list-preview {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    background: #f5f5f5;
+}
+
+.image-list-info {
+    padding: 1rem;
+}
+
+.image-list-info h4 {
+    color: #667eea;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.image-annotations-count {
+    background: #667eea;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.image-annotations-count.zero {
+    background: #6c757d;
+}
+
+/* Image annotations grid in modal */
+.image-annotations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.annotation-item-in-modal {
+    background: #f8f9fa;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #dee2e6;
+    transition: transform 0.2s;
+}
+
+.annotation-item-in-modal:hover {
+    transform: scale(1.02);
+}
+
+.annotation-preview-small {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    background: #e9ecef;
+}
+
+.annotation-meta-small {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.annotation-meta-small .user-badge {
+    background: #28a745;
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    display: inline-block;
+    margin-top: 0.25rem;
+}
+
+.no-annotations-message {
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    padding: 2rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px dashed #dee2e6;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .admin-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .annotations-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .annotation-details {
+        grid-template-columns: 1fr;
+    }
+}

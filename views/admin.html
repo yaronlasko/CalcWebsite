@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin View - Calculus Detection</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Admin View</h1>
+            <div class="admin-controls">
+                <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
+                <a href="/" class="btn btn-secondary">Home</a>
+            </div>
+        </header>
+        
+        <main>
+            <div class="admin-dashboard">
+                <div class="stats-section">
+                    <h2>Statistics</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Test Annotations</h3>
+                            <p id="testCount">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Annotate Annotations</h3>
+                            <p id="annotateCount">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total Annotations</h3>
+                            <p id="totalCount">0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="annotations-section">
+                    <h2>Test Images & Annotations</h2>
+                    <div id="testImagesList" class="images-list">
+                        <!-- Test images will be loaded here -->
+                    </div>
+                    
+                    <h2>Annotate Section Annotations</h2>
+                    <div id="annotateAnnotations" class="annotations-grid">
+                        <!-- Annotate annotations will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Annotation Details</h3>
+                <span class="close" id="closeImageModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="annotation-details">
+                    <div class="detail-item">
+                        <strong>Image ID:</strong> <span id="modalImageId"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>User:</strong> <span id="modalUser"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Source:</strong> <span id="modalSource"></span>
+                    </div>
+                    <div class="detail-item">
+                        <strong>Timestamp:</strong> <span id="modalTimestamp"></span>
+                    </div>
+                </div>
+                <div class="image-display">
+                    <div class="zoom-controls">
+                        <div class="zoom-slider-container">
+                            <div class="zoom-value" id="adminZoomValue">100%</div>
+                            <input type="range" id="adminZoomSlider" class="zoom-slider" min="25" max="300" value="100" orient="vertical">
+                            <button id="adminZoomReset" class="zoom-reset">Reset</button>
+                        </div>
+                    </div>
+                    <div class="admin-image-wrapper" id="adminImageWrapper">
+                        <img id="modalImage" src="" alt="Annotation">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Image Annotations Modal -->
+    <div id="imageAnnotationsModal" class="image-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>All Annotations for Image: <span id="modalImageName"></span></h3>
+                <span class="close" id="closeImageAnnotationsModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="image-annotations-grid" id="imageAnnotationsGrid">
+                    <!-- Image annotations will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>
