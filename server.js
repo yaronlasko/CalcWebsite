@@ -371,7 +371,7 @@ app.post('/api/annotations/:imageId', async (req, res) => {
         let base64Data, canvasWidth, canvasHeight;
         
         if (typeof maskData === 'object' && maskData.maskData) {
-            // New format: object with dimensions
+            // Frontend sends object with structure: {maskData: base64, canvasWidth: x, canvasHeight: y}
             base64Data = maskData.maskData.replace(/^data:image\/png;base64,/, '');
             canvasWidth = maskData.canvasWidth || 800;
             canvasHeight = maskData.canvasHeight || 600;
