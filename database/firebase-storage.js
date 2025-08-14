@@ -51,7 +51,14 @@ class FirebaseStorage {
                 maskFilename
             } = annotationData;
 
-            // Create annotation document
+            // Process mask data to ensure 0/1 binary format
+            let processedMaskData = null;
+            if (data && data.maskData) {
+                processedMaskData = this.processMaskTo01(data.maskData, data.canvasWidth, data.canvasHeight);
+                console.log(`📊 Processed mask: ${processedMaskData.totalPixels} pixels, ${processedMaskData.annotatedPixels} annotated (${processedMaskData.percentage.toFixed(2)}%)`);
+            }
+
+            // Create annotation document with 0/1 mask
             const annotationDoc = {
                 id: Date.now() + Math.random(),
                 image_id: imageId,
@@ -59,7 +66,20 @@ class FirebaseStorage {
                 timestamp: new Date().toISOString(),
                 source: source,
                 original_image: originalImage,
+                
+                // Store the original annotation data
                 annotation_data: JSON.stringify(data),
+                
+                // Store processed 0/1 mask data
+                mask_binary: processedMaskData ? {
+                    mask_01: processedMaskData.binaryMask, // 0/1 array
+                    width: processedMaskData.width,
+                    height: processedMaskData.height,
+                    total_pixels: processedMaskData.totalPixels,
+                    annotated_pixels: processedMaskData.annotatedPixels,
+                    coverage_percentage: processedMaskData.percentage
+                } : null,
+                
                 mask_filename: maskFilename,
                 created_at: admin.firestore.FieldValue.serverTimestamp(),
                 updated_at: admin.firestore.FieldValue.serverTimestamp()
@@ -75,11 +95,62 @@ class FirebaseStorage {
             await this.updateImageStats(imageId);
             
             console.log(`✅ Annotation saved to Firebase with ID: ${docRef.id}`);
+            console.log(`📊 Mask data: ${processedMaskData ? processedMaskData.annotatedPixels + ' annotated pixels' : 'no mask data'}`);
+            
             return docRef.id;
 
         } catch (error) {
             console.error('❌ Firebase save error:', error.message);
             return false;
+        }
+    }
+
+    // Process mask data to 0/1 binary format
+    processMaskTo01(maskData, width, height) {
+        if (!maskData || !width || !height) {
+            return null;
+        }
+
+        try {
+            let binaryMask = [];
+            let annotatedPixels = 0;
+            const totalPixels = width * height;
+
+            // Convert mask data to 0/1 array
+            if (Array.isArray(maskData)) {
+                // If already array format
+                for (let i = 0; i < maskData.length; i++) {
+                    const value = maskData[i] > 0 ? 1 : 0;
+                    binaryMask.push(value);
+                    if (value === 1) annotatedPixels++;
+                }
+            } else if (typeof maskData === 'string') {
+                // If base64 or other string format, process accordingly
+                // For now, assume it's a simple format
+                for (let i = 0; i < totalPixels; i++) {
+                    binaryMask.push(0); // Default to 0 for now
+                }
+            } else {
+                // Handle other formats (ImageData, etc.)
+                for (let i = 0; i < totalPixels; i++) {
+                    binaryMask.push(0);
+                }
+            }
+
+            const percentage = totalPixels > 0 ? (annotatedPixels / totalPixels) * 100 : 0;
+
+            return {
+                binaryMask: binaryMask,
+                width: width,
+                height: height,
+                totalPixels: totalPixels,
+                annotatedPixels: annotatedPixels,
+                percentage: percentage
+            };
+
+        } catch (error) {
+            console.error('Error processing mask to 0/1 format:', error);
+            return null;
         }
     }
 

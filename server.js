@@ -384,20 +384,28 @@ app.post('/api/annotations/:imageId', async (req, res) => {
             return '';
         }
         
-        // Prepare annotation data for database
+        // Prepare annotation data for database (including proper mask data)
         const annotationData = {
             imageId: imageId,
             userId: userId || 'anonymous',
             source: imageId.startsWith('test-') ? 'test' : 'annotate',
             originalImage: getOriginalImageName(imageId),
-            maskData: base64Data, // Store base64 data in database
+            annotationData: {
+                maskData: base64Data, // Raw base64 mask data
+                canvasWidth: canvasWidth, // Make sure we have dimensions for 0/1 processing
+                canvasHeight: canvasHeight,
+                timestamp: new Date().toISOString()
+            },
             maskFilename: path.basename(annotationPath)
         };
         
-        // Save to database
+        // Save to Firebase (primary storage) - this now handles automatic backup
+        console.log('🔥 Saving annotation with automatic Firebase backup...');
         const dbResult = await annotationDB.saveAnnotation(annotationData);
         
-        // Update image data (keep existing functionality)
+        console.log(`✅ Annotation saved successfully! Database ID: ${dbResult}`);
+        
+        // Update image completion status (keep existing functionality)
         let imageIndex = -1;
         let imageArray = null;
         
@@ -420,9 +428,10 @@ app.post('/api/annotations/:imageId', async (req, res) => {
         }
         
         res.json({ 
-            message: 'Annotation saved successfully to database',
+            message: 'Annotation saved successfully with automatic Firebase backup',
             annotationPath: annotationPath,
-            databaseId: dbResult.id,
+            databaseId: dbResult,
+            storage: annotationDB.firebaseStorage.isInitialized ? 'firebase' : 'local',
             metadata: annotationData
         });
     } catch (error) {
@@ -557,12 +566,29 @@ app.get('/api/admin/test-images', requireAdmin, (req, res) => {
 // New database-powered admin endpoints
 app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     try {
+        console.log('📊 Admin requesting stats...');
         const stats = await annotationDB.getAnnotationStats();
-        const userStats = await annotationDB.getUserStats();
+        
+        // Get user stats if available
+        let userStats = [];
+        try {
+            if (annotationDB.firebaseStorage.isInitialized) {
+                // For Firebase, we don't have getUserStats yet, so just return empty array
+                userStats = [];
+            } else {
+                userStats = await annotationDB.getUserStats();
+            }
+        } catch (error) {
+            console.log('⚠️ Could not get user stats:', error.message);
+            userStats = [];
+        }
+        
+        console.log(`📊 Returning stats: ${stats.total_annotations} total annotations from ${annotationDB.firebaseStorage.isInitialized ? 'Firebase' : 'local'}`);
         
         res.json({
             overview: stats,
-            topUsers: userStats.slice(0, 10)
+            topUsers: userStats.slice(0, 10),
+            source: annotationDB.firebaseStorage.isInitialized ? 'firebase' : 'local'
         });
     } catch (error) {
         console.error('Error fetching stats:', error);

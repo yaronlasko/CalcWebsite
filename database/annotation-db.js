@@ -84,48 +84,50 @@ class AnnotationDatabase {
         } = annotationData;
 
         try {
-            // Save to Firebase first (primary storage)
-            console.log('🔥 Saving annotation to Firebase...');
-            this.firebaseStorage.saveAnnotation(annotationData)
-                .then(firebaseId => {
-                    if (firebaseId) {
-                        console.log(`✅ Annotation saved to Firebase with ID: ${firebaseId}`);
-                    } else {
-                        console.log('⚠️  Firebase save failed - annotation exists locally only');
-                    }
-                })
-                .catch(err => {
-                    console.error('❌ Firebase save error:', err.message);
-                });
-            
-            // Also save locally (for immediate response and fallback)
-            const annotations = this.readJSONFile(this.annotationsFile, []);
-            
-            // Create new annotation
-            const newAnnotation = {
-                id: Date.now() + Math.random(),
-                image_id: imageId,
-                user_id: userId,
-                timestamp: new Date().toISOString(),
-                source: source,
-                original_image: originalImage,
-                annotation_data: JSON.stringify(data),
-                mask_filename: maskFilename,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
+            // Firebase-first approach: Save to Firebase ONLY
+            if (this.firebaseStorage.isInitialized) {
+                console.log('🔥 Saving annotation to Firebase (primary storage)...');
+                
+                return this.firebaseStorage.saveAnnotation(annotationData)
+                    .then(firebaseId => {
+                        if (firebaseId) {
+                            console.log(`✅ Annotation saved to Firebase with ID: ${firebaseId}`);
+                            return firebaseId;
+                        } else {
+                            throw new Error('Firebase save failed - no ID returned');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('❌ Firebase save error:', err.message);
+                        throw new Error(`Firebase save failed: ${err.message}`);
+                    });
+            } else {
+                // Only use local storage if Firebase is not available
+                console.log('⚠️ Firebase not connected - saving locally (will be lost on restart)');
+                
+                const annotations = this.readJSONFile(this.annotationsFile, []);
+                
+                const newAnnotation = {
+                    id: Date.now() + Math.random(),
+                    image_id: imageId,
+                    user_id: userId,
+                    timestamp: new Date().toISOString(),
+                    source: source,
+                    original_image: originalImage,
+                    annotation_data: JSON.stringify(data),
+                    mask_filename: maskFilename,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
 
-            // Add to local annotations
-            annotations.push(newAnnotation);
-            this.writeJSONFile(this.annotationsFile, annotations);
-            
-            // Update local stats
-            this.updateUserStats(userId);
-            this.updateImageStats(imageId);
-            
-            console.log(`✅ Annotation saved locally with ID: ${newAnnotation.id}`);
-            
-            return newAnnotation.id;
+                annotations.push(newAnnotation);
+                this.writeJSONFile(this.annotationsFile, annotations);
+                this.updateUserStats(userId);
+                this.updateImageStats(imageId);
+                
+                console.log(`⚠️ Annotation saved locally only with ID: ${newAnnotation.id}`);
+                return Promise.resolve(newAnnotation.id);
+            }
         } catch (err) {
             console.error('Error saving annotation:', err);
             throw err;
@@ -223,58 +225,48 @@ class AnnotationDatabase {
         }
     }
 
-    getAllAnnotations(limit = 100) {
-        try {
-            const annotations = this.readJSONFile(this.annotationsFile, []);
-            return annotations
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                .slice(0, limit);
-        } catch (err) {
-            console.error('Error getting annotations:', err);
-            return [];
+    // Get annotations (Firebase first, local fallback)
+    async getAllAnnotations(limit = 100) {
+        if (this.firebaseStorage.isInitialized) {
+            console.log('📊 Getting annotations from Firebase...');
+            return await this.firebaseStorage.getAllAnnotations(limit);
+        } else {
+            console.log('📂 Getting annotations from local storage...');
+            try {
+                const annotations = this.readJSONFile(this.annotationsFile, []);
+                return annotations
+                    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                    .slice(0, limit);
+            } catch (err) {
+                console.error('Error getting annotations:', err);
+                return [];
+            }
         }
     }
 
-    getAnnotationsByUser(userId) {
-        try {
-            const annotations = this.readJSONFile(this.annotationsFile, []);
-            return annotations
-                .filter(a => a.user_id === userId)
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        } catch (err) {
-            console.error('Error getting user annotations:', err);
-            return [];
-        }
-    }
-
-    getAnnotationsByImage(imageId) {
-        try {
-            const annotations = this.readJSONFile(this.annotationsFile, []);
-            return annotations
-                .filter(a => a.image_id === imageId)
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        } catch (err) {
-            console.error('Error getting image annotations:', err);
-            return [];
-        }
-    }
-
-    getAnnotationStats() {
-        try {
-            const annotations = this.readJSONFile(this.annotationsFile, []);
-            const uniqueUsers = new Set(annotations.map(a => a.user_id));
-            const uniqueImages = new Set(annotations.map(a => a.image_id));
-            
-            return {
-                total_annotations: annotations.length,
-                unique_users: uniqueUsers.size,
-                annotated_images: uniqueImages.size,
-                test_annotations: annotations.filter(a => a.source === 'test').length,
-                direct_annotations: annotations.filter(a => a.source === 'annotate').length
-            };
-        } catch (err) {
-            console.error('Error getting stats:', err);
-            return {};
+    // Get stats (Firebase first, local fallback) 
+    async getAnnotationStats() {
+        if (this.firebaseStorage.isInitialized) {
+            console.log('📊 Getting stats from Firebase...');
+            return await this.firebaseStorage.getAnnotationStats();
+        } else {
+            console.log('📂 Getting stats from local storage...');
+            try {
+                const annotations = this.readJSONFile(this.annotationsFile, []);
+                const uniqueUsers = new Set(annotations.map(a => a.user_id));
+                const uniqueImages = new Set(annotations.map(a => a.image_id));
+                
+                return {
+                    total_annotations: annotations.length,
+                    unique_users: uniqueUsers.size,
+                    annotated_images: uniqueImages.size,
+                    test_annotations: annotations.filter(a => a.source === 'test').length,
+                    direct_annotations: annotations.filter(a => a.source === 'annotate').length
+                };
+            } catch (err) {
+                console.error('Error getting stats:', err);
+                return {};
+            }
         }
     }
 
