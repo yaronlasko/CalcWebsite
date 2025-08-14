@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Google Drive elements
     const driveStatusText = document.getElementById('driveStatusText');
     const syncDriveBtn = document.getElementById('syncDriveBtn');
+    const viewDriveBtn = document.getElementById('viewDriveBtn');
     
     const imageModal = document.getElementById('imageModal');
     const closeModal = document.getElementById('closeImageModal');
@@ -39,6 +40,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Google Drive sync button
     syncDriveBtn.addEventListener('click', syncToGoogleDrive);
+    
+    // Google Drive external view button
+    viewDriveBtn.addEventListener('click', showExternalDriveInfo);
     
     // Modal close handlers
     closeModal.addEventListener('click', () => {
@@ -450,14 +454,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     driveStatusText.textContent = '✅ Connected';
                     driveStatusText.style.color = '#28a745';
                     syncDriveBtn.style.display = 'block';
+                    viewDriveBtn.style.display = 'block';
                 } else if (data.hasCredentials) {
                     driveStatusText.textContent = '⚠️ Configured';
                     driveStatusText.style.color = '#ffc107';
                     syncDriveBtn.style.display = 'block';
+                    viewDriveBtn.style.display = 'none';
                 } else {
                     driveStatusText.textContent = '❌ Not Setup';
                     driveStatusText.style.color = '#dc3545';
                     syncDriveBtn.style.display = 'none';
+                    viewDriveBtn.style.display = 'none';
                 }
             })
             .catch(error => {
@@ -488,6 +495,92 @@ document.addEventListener('DOMContentLoaded', function() {
                 syncDriveBtn.disabled = false;
                 syncDriveBtn.textContent = 'Sync Now';
                 checkDriveStatus();
+            });
+    }
+    
+    function showExternalDriveInfo() {
+        fetch('/api/admin/drive-info')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.folder) {
+                    const folderInfo = data.folder;
+                    const files = data.files || [];
+                    
+                    let filesList = '';
+                    files.forEach(file => {
+                        const sizeKB = file.size ? Math.round(file.size / 1024) + ' KB' : 'Unknown size';
+                        const modifiedDate = new Date(file.modified).toLocaleString();
+                        filesList += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                                <strong>${file.name}</strong><br>
+                                <small>Size: ${sizeKB} | Modified: ${modifiedDate}</small><br>
+                                ${file.link ? `<a href="${file.link}" target="_blank" style="color: #007bff;">📄 View File</a>` : 'File not accessible'}
+                            </div>
+                        `;
+                    });
+                    
+                    const message = `
+                        <div style="text-align: left; max-width: 500px;">
+                            <h3>🔗 External Google Drive Access</h3>
+                            <p><strong>Folder:</strong> ${folderInfo.name}</p>
+                            <p><strong>Created:</strong> ${new Date(folderInfo.created).toLocaleString()}</p>
+                            <p><strong>Last Modified:</strong> ${new Date(folderInfo.modified).toLocaleString()}</p>
+                            
+                            ${folderInfo.link ? `
+                                <p><a href="${folderInfo.link}" target="_blank" style="color: #007bff; font-weight: bold;">
+                                    📁 Open Folder in Google Drive
+                                </a></p>
+                            ` : '<p>⚠️ Folder link not available</p>'}
+                            
+                            <hr>
+                            <h4>📊 Backed Up Files (${files.length}):</h4>
+                            ${filesList || '<p><em>No files found</em></p>'}
+                            
+                            <hr>
+                            <p><strong>Note:</strong> These files contain your annotation data and are automatically synced every time users create annotations.</p>
+                        </div>
+                    `;
+                    
+                    // Create and show custom modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                        background: rgba(0,0,0,0.5); z-index: 10000; display: flex; 
+                        align-items: center; justify-content: center;
+                    `;
+                    
+                    const content = document.createElement('div');
+                    content.style.cssText = `
+                        background: white; padding: 30px; border-radius: 10px; 
+                        max-height: 80vh; overflow-y: auto; position: relative;
+                        max-width: 600px; width: 90%;
+                    `;
+                    
+                    const closeBtn = document.createElement('button');
+                    closeBtn.innerHTML = '✖';
+                    closeBtn.style.cssText = `
+                        position: absolute; top: 10px; right: 15px; 
+                        background: none; border: none; font-size: 20px; 
+                        cursor: pointer; color: #999;
+                    `;
+                    
+                    content.innerHTML = message;
+                    content.appendChild(closeBtn);
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                    
+                    closeBtn.onclick = () => document.body.removeChild(modal);
+                    modal.onclick = (e) => {
+                        if (e.target === modal) document.body.removeChild(modal);
+                    };
+                    
+                } else {
+                    alert('❌ Could not retrieve Google Drive folder information: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error getting Drive info:', error);
+                alert('❌ Failed to get Drive info: ' + error.message);
             });
     }
 });

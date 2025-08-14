@@ -485,6 +485,11 @@ app.get('/view', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
+// External annotation viewer (also requires admin login)
+app.get('/external-view', requireAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'external-viewer.html'));
+});
+
 // Debug endpoint to check admin status
 app.get('/api/admin/status', (req, res) => {
     res.json({
@@ -622,6 +627,30 @@ app.get('/api/admin/drive-status', requireAdmin, async (req, res) => {
     } catch (error) {
         res.json({
             connected: false,
+            error: error.message
+        });
+    }
+});
+
+// Get Google Drive folder info for external access
+app.get('/api/admin/drive-info', requireAdmin, async (req, res) => {
+    try {
+        const folderInfo = await annotationDB.driveStorage.getFolderInfo();
+        if (folderInfo) {
+            res.json({
+                success: true,
+                ...folderInfo
+            });
+        } else {
+            res.status(404).json({
+                success: false,
+                error: 'Google Drive not connected or folder not accessible'
+            });
+        }
+    } catch (error) {
+        console.error('Error getting Drive folder info:', error);
+        res.status(500).json({
+            success: false,
             error: error.message
         });
     }

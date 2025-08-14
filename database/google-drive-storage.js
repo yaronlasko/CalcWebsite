@@ -72,7 +72,7 @@ class GoogleDriveStorage {
                 this.folderId = response.data.files[0].id;
                 console.log(`📁 Found existing folder: ${folderName}`);
             } else {
-                // Create new folder
+                // Create new folder with public sharing
                 const folderResponse = await this.drive.files.create({
                     resource: {
                         name: folderName,
@@ -80,8 +80,37 @@ class GoogleDriveStorage {
                     }
                 });
                 this.folderId = folderResponse.data.id;
-                console.log(`📁 Created new folder: ${folderName}`);
+                
+                // Make folder shareable with a link (anyone with link can view)
+                try {
+                    await this.drive.permissions.create({
+                        fileId: this.folderId,
+                        resource: {
+                            role: 'reader',
+                            type: 'anyone'
+                        }
+                    });
+                    console.log(`📁 Created new folder: ${folderName} (shareable with link)`);
+                } catch (permError) {
+                    console.log(`📁 Created new folder: ${folderName} (private only)`);
+                }
             }
+            
+            // Get the shareable link
+            try {
+                const folderInfo = await this.drive.files.get({
+                    fileId: this.folderId,
+                    fields: 'webViewLink,name'
+                });
+                
+                if (folderInfo.data.webViewLink) {
+                    console.log(`🔗 Folder accessible at: ${folderInfo.data.webViewLink}`);
+                    this.folderLink = folderInfo.data.webViewLink;
+                }
+            } catch (linkError) {
+                console.log('📁 Folder created but link not accessible');
+            }
+            
         } catch (error) {
             console.error('❌ Error managing Drive folder:', error.message);
             throw error;
@@ -221,6 +250,45 @@ class GoogleDriveStorage {
         ]);
 
         return { annotations, users, images };
+    }
+    
+    // Get folder information for external access
+    async getFolderInfo() {
+        if (!this.isInitialized || !this.drive) {
+            return null;
+        }
+        
+        try {
+            const folderInfo = await this.drive.files.get({
+                fileId: this.folderId,
+                fields: 'webViewLink,name,createdTime,modifiedTime'
+            });
+            
+            // Get list of files in folder
+            const files = await this.drive.files.list({
+                q: `parents='${this.folderId}'`,
+                fields: 'files(name,createdTime,modifiedTime,size,webViewLink)'
+            });
+            
+            return {
+                folder: {
+                    name: folderInfo.data.name,
+                    link: folderInfo.data.webViewLink,
+                    created: folderInfo.data.createdTime,
+                    modified: folderInfo.data.modifiedTime
+                },
+                files: files.data.files.map(file => ({
+                    name: file.name,
+                    size: file.size,
+                    created: file.createdTime,
+                    modified: file.modifiedTime,
+                    link: file.webViewLink
+                }))
+            };
+        } catch (error) {
+            console.error('❌ Error getting folder info:', error.message);
+            return null;
+        }
     }
 }
 
