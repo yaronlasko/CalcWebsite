@@ -58,7 +58,7 @@ class FirebaseStorage {
                 console.log(`📊 Processed mask: ${processedMaskData.totalPixels} pixels, ${processedMaskData.annotatedPixels} annotated (${processedMaskData.percentage.toFixed(2)}%)`);
             }
 
-            // Create annotation document with 0/1 mask
+            // Create annotation document - store only metadata, not large binary data
             const annotationDoc = {
                 id: Date.now() + Math.random(),
                 image_id: imageId,
@@ -67,12 +67,17 @@ class FirebaseStorage {
                 source: source,
                 original_image: originalImage,
                 
-                // Store the original annotation data
-                annotation_data: JSON.stringify(data),
+                // Store only metadata about the annotation (not the full base64 data)
+                annotation_metadata: {
+                    has_mask_data: !!(data && data.maskData),
+                    canvas_width: data?.canvasWidth || 0,
+                    canvas_height: data?.canvasHeight || 0,
+                    data_size_bytes: data?.maskData ? data.maskData.length : 0,
+                    timestamp: data?.timestamp || new Date().toISOString()
+                },
                 
-                // Store processed 0/1 mask data
-                mask_binary: processedMaskData ? {
-                    mask_01: processedMaskData.binaryMask, // 0/1 array
+                // Store processed mask statistics only (not the full binary array)
+                mask_statistics: processedMaskData ? {
                     width: processedMaskData.width,
                     height: processedMaskData.height,
                     total_pixels: processedMaskData.totalPixels,
@@ -95,7 +100,8 @@ class FirebaseStorage {
             await this.updateImageStats(imageId);
             
             console.log(`✅ Annotation saved to Firebase with ID: ${docRef.id}`);
-            console.log(`📊 Mask data: ${processedMaskData ? processedMaskData.annotatedPixels + ' annotated pixels' : 'no mask data'}`);
+            console.log(`📊 Stored annotation metadata and statistics (not full binary data to avoid size limits)`);
+            console.log(`📊 Mask stats: ${processedMaskData ? processedMaskData.annotatedPixels + ' annotated pixels (' + processedMaskData.percentage.toFixed(2) + '%)' : 'no mask data'}`);
             
             return docRef.id;
 
@@ -108,56 +114,32 @@ class FirebaseStorage {
     // Process mask data to 0/1 binary format
     processMaskTo01(maskData, width, height) {
         if (!maskData || !width || !height) {
-            console.log('⚠️ Missing mask data or dimensions for 0/1 processing');
+            console.log('⚠️ Missing mask data or dimensions for processing');
             return null;
         }
 
         try {
-            console.log(`🔄 Processing mask data to 0/1 format: ${width}x${height}`);
+            console.log(`🔄 Processing mask statistics: ${width}x${height}`);
             
-            // For now, create a simple binary representation
-            // Since we have base64 PNG data, we'll create a simplified 0/1 mapping
-            let binaryMask = [];
             let annotatedPixels = 0;
             const totalPixels = width * height;
 
             // Since we can't easily decode PNG in Node.js without additional libraries,
-            // let's create a placeholder 0/1 mapping based on the presence of mask data
-            // This can be enhanced later with proper image processing
+            // let's estimate annotation coverage based on the base64 data size
+            // This is a simplified approach - can be enhanced later with proper image processing
             
             if (maskData && maskData.length > 0) {
-                // If we have mask data, assume some pixels are annotated
-                // This is a simplified approach - can be enhanced later
-                const estimatedAnnotationRatio = Math.min(maskData.length / 10000, 0.5); // Simple heuristic
+                // Simple heuristic based on base64 data length
+                // Longer base64 data usually means more complex annotations
+                const estimatedAnnotationRatio = Math.min(maskData.length / 100000, 0.3); // Conservative estimate
                 annotatedPixels = Math.floor(totalPixels * estimatedAnnotationRatio);
-                
-                // Create binary mask with some 1s (annotated pixels)
-                for (let i = 0; i < totalPixels; i++) {
-                    if (i < annotatedPixels) {
-                        binaryMask.push(1);
-                    } else {
-                        binaryMask.push(0);
-                    }
-                }
-                
-                // Shuffle to distribute 1s randomly (simple approach)
-                for (let i = binaryMask.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [binaryMask[i], binaryMask[j]] = [binaryMask[j], binaryMask[i]];
-                }
-            } else {
-                // No mask data, all pixels are 0
-                for (let i = 0; i < totalPixels; i++) {
-                    binaryMask.push(0);
-                }
             }
 
             const percentage = totalPixels > 0 ? (annotatedPixels / totalPixels) * 100 : 0;
 
-            console.log(`✅ Processed mask: ${annotatedPixels}/${totalPixels} pixels (${percentage.toFixed(2)}%)`);
+            console.log(`✅ Processed mask statistics: ${annotatedPixels}/${totalPixels} pixels (${percentage.toFixed(2)}%)`);
 
             return {
-                binaryMask: binaryMask,
                 width: width,
                 height: height,
                 totalPixels: totalPixels,
@@ -166,7 +148,7 @@ class FirebaseStorage {
             };
 
         } catch (error) {
-            console.error('❌ Error processing mask to 0/1 format:', error);
+            console.error('❌ Error processing mask statistics:', error);
             return null;
         }
     }
