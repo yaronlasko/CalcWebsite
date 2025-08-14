@@ -36,7 +36,8 @@ A Node.js/Express web server for the calculusdetection.com domain providing AI-p
 - **Frontend**: HTML5, CSS3, JavaScript
 - **Canvas API**: For paintbrush annotation tool
 - **File Upload**: Multer for secure image handling
-- **Storage**: Local file system (images and annotations)
+- **Storage**: Local file system + Firebase remote storage
+- **Remote Backup**: Firebase Firestore for persistent cloud storage
 - **Security**: Helmet for security headers
 
 ## Quick Start Guide
@@ -147,6 +148,28 @@ C:\Users\Bitroix\Desktop\Technion\Calculus
 - `npm start` - Start production server
 - `npm run dev` - Start development server (with auto-reload)
 - `node setup-images.js` - Organize images into proper folders
+
+## 🔥 Firebase Remote Storage
+
+The application uses **Firebase Firestore** for reliable remote storage that ensures annotations are never lost:
+
+### Key Benefits
+- ✅ **Persistent Storage** - Data survives server restarts and redeployments
+- ✅ **External Access** - View annotations from anywhere via Firebase Console
+- ✅ **Real-time Sync** - Every annotation automatically saved to cloud
+- ✅ **Simple Setup** - One-time configuration, automatic thereafter
+
+### Quick Setup
+1. Follow the complete setup guide: **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**
+2. Add `FIREBASE_CREDENTIALS` environment variable to your deployment
+3. Your app will automatically connect and start using Firebase
+
+### Access Your Data
+- **Admin Panel**: `/view` - Full admin interface (login required)
+- **External Viewer**: `/firebase-view` - Public real-time data viewer  
+- **Firebase Console**: Direct access with advanced query capabilities
+
+Without Firebase, annotations are stored locally only and **will be lost** when the server restarts (common on platforms like Render).
 
 ## Development
 

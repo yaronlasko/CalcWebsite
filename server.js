@@ -490,6 +490,11 @@ app.get('/external-view', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'external-viewer.html'));
 });
 
+// Firebase data viewer (public access for easy external viewing)
+app.get('/firebase-view', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'firebase-viewer.html'));
+});
+
 // Debug endpoint to check admin status
 app.get('/api/admin/status', (req, res) => {
     res.json({
@@ -697,6 +702,108 @@ app.get('/api/admin/drive-info', requireAdmin, async (req, res) => {
         }
     } catch (error) {
         console.error('Error getting Drive folder info:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// Firebase endpoints
+app.get('/api/admin/firebase-status', requireAdmin, async (req, res) => {
+    try {
+        const isConnected = annotationDB.firebaseStorage && annotationDB.firebaseStorage.isInitialized;
+        const consoleUrl = annotationDB.getFirebaseConsoleUrl();
+        
+        res.json({
+            success: true,
+            connected: isConnected,
+            consoleUrl: consoleUrl,
+            message: isConnected ? 'Firebase connected' : 'Firebase not connected'
+        });
+    } catch (error) {
+        console.error('Error getting Firebase status:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/admin/firebase-stats', requireAdmin, async (req, res) => {
+    try {
+        const stats = await annotationDB.getFirebaseStats();
+        if (stats) {
+            res.json({
+                success: true,
+                ...stats
+            });
+        } else {
+            res.json({
+                success: false,
+                error: 'Firebase not connected'
+            });
+        }
+    } catch (error) {
+        console.error('Error getting Firebase stats:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+app.get('/api/admin/firebase-annotations', requireAdmin, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const annotations = await annotationDB.getFirebaseAnnotations(limit);
+        res.json({
+            success: true,
+            annotations: annotations,
+            count: annotations.length
+        });
+    } catch (error) {
+        console.error('Error getting Firebase annotations:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+app.post('/api/admin/test-firebase', requireAdmin, async (req, res) => {
+    try {
+        // Create a test annotation to verify Firebase is working
+        const testData = {
+            imageId: 'firebase-test-' + Date.now(),
+            userId: 9999,
+            source: 'admin-test',
+            originalImage: 'firebase-test.jpg',
+            annotationData: { 
+                test: true, 
+                timestamp: new Date().toISOString(),
+                message: 'Firebase connection test' 
+            },
+            maskFilename: 'firebase-test-mask.png'
+        };
+
+        const firebaseId = await annotationDB.firebaseStorage.saveAnnotation(testData);
+        
+        if (firebaseId) {
+            res.json({
+                success: true,
+                message: 'Firebase test successful!',
+                firebaseId: firebaseId,
+                testData: testData
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                error: 'Firebase test failed - no ID returned'
+            });
+        }
+    } catch (error) {
+        console.error('Error testing Firebase:', error);
         res.status(500).json({
             success: false,
             error: error.message

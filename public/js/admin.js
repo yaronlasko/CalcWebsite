@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const annotateCountSpan = document.getElementById('annotateCount');
     const totalCountSpan = document.getElementById('totalCount');
     
-    // Google Drive elements
+    // Google Drive elements (legacy - keeping for reference)
     const driveStatusText = document.getElementById('driveStatusText');
     const driveDetails = document.getElementById('driveDetails');
     const testBackupBtn = document.getElementById('testBackupBtn');
@@ -30,16 +30,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load data on page load
     loadAnnotations();
-    checkDriveStatus();
+    checkFirebaseStatus();
     
     // Refresh button
     refreshBtn.addEventListener('click', () => {
         loadAnnotations();
-        checkDriveStatus();
+        checkFirebaseStatus();
     });
     
-    // Test backup button
-    testBackupBtn.addEventListener('click', testBackup);
+    // Test Firebase backup button
+    testBackupBtn.addEventListener('click', testFirebaseBackup);
     
     // Modal close handlers
     closeModal.addEventListener('click', () => {
@@ -442,69 +442,62 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup admin zoom when modal opens
     setupAdminZoom();
     
-    // Google Drive status check function
-    function checkDriveStatus() {
-        fetch('/api/admin/drive-status')
+    // Firebase status check function
+    function checkFirebaseStatus() {
+        fetch('/api/admin/firebase-status')
             .then(response => response.json())
             .then(data => {
                 if (data.connected) {
-                    driveStatusText.textContent = '✅ Auto-Backup Active';
+                    driveStatusText.textContent = '🔥 Firebase Connected';
                     driveStatusText.style.color = '#28a745';
-                    driveDetails.textContent = 'Annotations are automatically backed up to Google Drive on every save.';
-                    testBackupBtn.style.display = 'inline-block';
                     
-                    // Get drive info to show folder link
-                    fetch('/api/admin/drive-info')
-                        .then(res => res.json())
-                        .then(info => {
-                            if (info.success && info.folder && info.folder.link) {
-                                driveDetails.innerHTML = `Auto-backup active. <a href="${info.folder.link}" target="_blank" style="color: #007bff;">📁 View Drive Folder</a>`;
-                            }
-                        })
-                        .catch(() => {}); // Ignore errors for drive info
+                    let details = 'Annotations are automatically saved to Firebase on every submission.';
+                    if (data.consoleUrl) {
+                        details += ` <a href="${data.consoleUrl}" target="_blank" style="color: #007bff;">� View Firebase Console</a>`;
+                    }
+                    details += ` | <a href="/firebase-view" target="_blank" style="color: #007bff;">📊 View External Data</a>`;
+                    
+                    driveDetails.innerHTML = details;
+                    testBackupBtn.style.display = 'inline-block';
+                    testBackupBtn.textContent = 'Test Firebase';
                         
-                } else if (data.hasCredentials) {
-                    driveStatusText.textContent = '⚠️ Credentials Set';
-                    driveStatusText.style.color = '#ffc107';
-                    driveDetails.textContent = 'Google Drive credentials are configured but connection failed.';
-                    testBackupBtn.style.display = 'none';
                 } else {
-                    driveStatusText.textContent = '❌ Not Configured';
-                    driveStatusText.style.color = '#dc3545';
-                    driveDetails.textContent = 'Google Drive backup is not set up. Annotations are only stored locally.';
+                    driveStatusText.textContent = '⚠️ Firebase Not Connected';
+                    driveStatusText.style.color = '#ffc107';
+                    driveDetails.textContent = 'Firebase remote storage is not configured. Data is only stored locally and may be lost on server restart.';
                     testBackupBtn.style.display = 'none';
                 }
             })
             .catch(error => {
-                console.error('Error checking Drive status:', error);
+                console.error('Error checking Firebase status:', error);
                 driveStatusText.textContent = '❌ Error';
                 driveStatusText.style.color = '#dc3545';
-                driveDetails.textContent = 'Could not check Google Drive status.';
+                driveDetails.textContent = 'Could not check Firebase status.';
             });
     }
     
-    function testBackup() {
+    function testFirebaseBackup() {
         testBackupBtn.disabled = true;
         testBackupBtn.textContent = 'Testing...';
         
-        fetch('/api/admin/test-backup', { method: 'POST' })
+        fetch('/api/admin/test-firebase', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('✅ Test successful!\n\nA test annotation was created and backed up to Google Drive. Check your Drive folder to verify.');
+                    alert('🔥 Firebase test successful!\n\nA test annotation was created and saved to Firebase. Firebase ID: ' + data.firebaseId);
                     // Refresh annotations to show the new test annotation
                     loadAnnotations();
                 } else {
-                    alert('❌ Test failed: ' + (data.error || 'Unknown error'));
+                    alert('❌ Firebase test failed: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error testing backup:', error);
-                alert('❌ Test failed: ' + error.message);
+                console.error('Error testing Firebase:', error);
+                alert('❌ Firebase test failed: ' + error.message);
             })
             .finally(() => {
                 testBackupBtn.disabled = false;
-                testBackupBtn.textContent = 'Test Backup';
+                testBackupBtn.textContent = 'Test Firebase';
             });
     }
 });

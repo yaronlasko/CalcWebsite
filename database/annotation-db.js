@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const GoogleDriveStorage = require('./google-drive-storage');
+const FirebaseStorage = require('./firebase-storage');
 
 class AnnotationDatabase {
     constructor(dataDir = './data') {
@@ -9,7 +10,8 @@ class AnnotationDatabase {
         this.usersFile = path.join(dataDir, 'users.json');
         this.imagesFile = path.join(dataDir, 'images.json');
         
-        // Initialize Google Drive storage
+        // Initialize Firebase storage (primary) and Google Drive (fallback)
+        this.firebaseStorage = new FirebaseStorage();
         this.driveStorage = new GoogleDriveStorage();
         
         this.init();
@@ -22,26 +24,20 @@ class AnnotationDatabase {
                 fs.mkdirSync(this.dataDir, { recursive: true });
             }
 
-            // Try to restore data from Google Drive first
-            console.log('🔄 Attempting to restore data from Google Drive...');
-            const remoteData = await this.driveStorage.restoreAll();
+            // Initialize local files (minimal - just for local testing)
+            this.initializeFile(this.annotationsFile, []);
+            this.initializeFile(this.usersFile, {});
+            this.initializeFile(this.imagesFile, {});
             
-            if (remoteData.annotations.length > 0 || Object.keys(remoteData.users).length > 0) {
-                // Restore from Google Drive
-                this.writeJSONFile(this.annotationsFile, remoteData.annotations);
-                this.writeJSONFile(this.usersFile, remoteData.users);
-                this.writeJSONFile(this.imagesFile, remoteData.images);
-                console.log('✅ Data restored from Google Drive');
-                console.log(`📊 Restored: ${remoteData.annotations.length} annotations, ${Object.keys(remoteData.users).length} users`);
+            console.log('✅ Connected to JSON file database with Firebase remote storage');
+            
+            // Note: Firebase will be the primary storage, local files are just for fallback
+            if (this.firebaseStorage.isInitialized) {
+                console.log('� Firebase remote storage is ready');
             } else {
-                // Initialize with empty data
-                this.initializeFile(this.annotationsFile, []);
-                this.initializeFile(this.usersFile, {});
-                this.initializeFile(this.imagesFile, {});
-                console.log('📁 No remote data found - initialized with empty data');
+                console.log('⚠️  Firebase not available - using local storage only');
             }
             
-            console.log('✅ Connected to JSON file database with Google Drive backup');
         } catch (err) {
             console.error('Error initializing database:', err);
             // Fallback to local initialization
@@ -88,7 +84,21 @@ class AnnotationDatabase {
         } = annotationData;
 
         try {
-            // Read current annotations
+            // Save to Firebase first (primary storage)
+            console.log('🔥 Saving annotation to Firebase...');
+            this.firebaseStorage.saveAnnotation(annotationData)
+                .then(firebaseId => {
+                    if (firebaseId) {
+                        console.log(`✅ Annotation saved to Firebase with ID: ${firebaseId}`);
+                    } else {
+                        console.log('⚠️  Firebase save failed - annotation exists locally only');
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ Firebase save error:', err.message);
+                });
+            
+            // Also save locally (for immediate response and fallback)
             const annotations = this.readJSONFile(this.annotationsFile, []);
             
             // Create new annotation
@@ -105,26 +115,15 @@ class AnnotationDatabase {
                 updated_at: new Date().toISOString()
             };
 
-            // Add to annotations
+            // Add to local annotations
             annotations.push(newAnnotation);
             this.writeJSONFile(this.annotationsFile, annotations);
             
-            // Update user stats
+            // Update local stats
             this.updateUserStats(userId);
-            
-            // Update image stats
             this.updateImageStats(imageId);
             
-            console.log(`✅ Annotation saved with ID: ${newAnnotation.id}`);
-            
-            // Immediate backup to Google Drive (synchronous)
-            this.backupToGoogleDrive()
-                .then(() => {
-                    console.log('☁️  Annotation automatically backed up to Google Drive');
-                })
-                .catch(err => {
-                    console.error('⚠️  Google Drive auto-backup failed:', err.message);
-                });
+            console.log(`✅ Annotation saved locally with ID: ${newAnnotation.id}`);
             
             return newAnnotation.id;
         } catch (err) {
@@ -279,6 +278,27 @@ class AnnotationDatabase {
         }
     }
 
+    // Get Firebase stats (remote data)
+    async getFirebaseStats() {
+        if (this.firebaseStorage.isInitialized) {
+            return await this.firebaseStorage.getAnnotationStats();
+        }
+        return null;
+    }
+
+    // Get Firebase annotations (remote data)
+    async getFirebaseAnnotations(limit = 100) {
+        if (this.firebaseStorage.isInitialized) {
+            return await this.firebaseStorage.getAllAnnotations(limit);
+        }
+        return [];
+    }
+
+    // Get Firebase console URL for easy access
+    getFirebaseConsoleUrl() {
+        return this.firebaseStorage.getConsoleUrl();
+    }
+
     getUserStats() {
         try {
             const users = this.readJSONFile(this.usersFile, {});
@@ -308,6 +328,9 @@ class AnnotationDatabase {
     }
 
     close() {
+        if (this.firebaseStorage) {
+            this.firebaseStorage.close();
+        }
         console.log('✅ Database connection closed');
     }
 }
