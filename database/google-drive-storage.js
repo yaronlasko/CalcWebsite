@@ -71,8 +71,11 @@ class GoogleDriveStorage {
             if (response.data.files.length > 0) {
                 this.folderId = response.data.files[0].id;
                 console.log(`📁 Found existing folder: ${folderName}`);
+                
+                // Ensure permissions are set for existing folder
+                await this.ensureFolderPermissions();
             } else {
-                // Create new folder with public sharing
+                // Create new folder
                 const folderResponse = await this.drive.files.create({
                     resource: {
                         name: folderName,
@@ -80,20 +83,10 @@ class GoogleDriveStorage {
                     }
                 });
                 this.folderId = folderResponse.data.id;
+                console.log(`📁 Created new folder: ${folderName}`);
                 
-                // Make folder shareable with a link (anyone with link can view)
-                try {
-                    await this.drive.permissions.create({
-                        fileId: this.folderId,
-                        resource: {
-                            role: 'reader',
-                            type: 'anyone'
-                        }
-                    });
-                    console.log(`📁 Created new folder: ${folderName} (shareable with link)`);
-                } catch (permError) {
-                    console.log(`📁 Created new folder: ${folderName} (private only)`);
-                }
+                // Set permissions for the new folder
+                await this.ensureFolderPermissions();
             }
             
             // Get the shareable link
@@ -115,6 +108,66 @@ class GoogleDriveStorage {
             console.error('❌ Error managing Drive folder:', error.message);
             throw error;
         }
+    }
+
+    async ensureFolderPermissions() {
+        if (!this.drive || !this.folderId) return;
+
+        const emailsToGrantAccess = [
+            'lasko.yaron@gmail.com',
+            'toothsegproject@gmail.com'
+        ];
+
+        try {
+            // First, make folder publicly viewable with link
+            try {
+                await this.drive.permissions.create({
+                    fileId: this.folderId,
+                    resource: {
+                        role: 'reader',
+                        type: 'anyone'
+                    }
+                });
+                console.log(`🌐 Folder made publicly viewable with link`);
+            } catch (publicError) {
+                console.log('⚠️ Could not make folder publicly viewable:', publicError.message);
+            }
+
+            // Grant specific email permissions
+            for (const email of emailsToGrantAccess) {
+                try {
+                    await this.drive.permissions.create({
+                        fileId: this.folderId,
+                        resource: {
+                            role: 'writer',  // Editor access
+                            type: 'user',
+                            emailAddress: email
+                        }
+                    });
+                    console.log(`✅ Granted editor access to ${email}`);
+                } catch (permError) {
+                    console.log(`⚠️ Could not grant access to ${email}:`, permError.message);
+                    // Continue with other emails even if one fails
+                }
+            }
+
+        } catch (error) {
+            console.error('❌ Error setting folder permissions:', error.message);
+            // Don't throw error - folder creation should still work
+        }
+    }
+
+    // Method to fix permissions for existing folders
+    async fixFolderPermissions() {
+        if (!this.drive || !this.folderId) {
+            console.log('❌ Drive not initialized or folder not found');
+            return false;
+        }
+
+        console.log('🔧 Fixing folder permissions...');
+        await this.ensureFolderPermissions();
+        console.log('✅ Folder permissions update completed');
+        return true;
     }
 
     async uploadFile(filename, data) {
@@ -269,13 +322,26 @@ class GoogleDriveStorage {
                 q: `parents='${this.folderId}'`,
                 fields: 'files(name,createdTime,modifiedTime,size,webViewLink)'
             });
+
+            // Get permissions info
+            let permissions = [];
+            try {
+                const permissionsResponse = await this.drive.permissions.list({
+                    fileId: this.folderId,
+                    fields: 'permissions(emailAddress,role,type)'
+                });
+                permissions = permissionsResponse.data.permissions || [];
+            } catch (permError) {
+                console.log('Could not retrieve permissions info:', permError.message);
+            }
             
             return {
                 folder: {
                     name: folderInfo.data.name,
                     link: folderInfo.data.webViewLink,
                     created: folderInfo.data.createdTime,
-                    modified: folderInfo.data.modifiedTime
+                    modified: folderInfo.data.modifiedTime,
+                    permissions: permissions
                 },
                 files: files.data.files.map(file => ({
                     name: file.name,

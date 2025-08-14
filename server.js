@@ -616,6 +616,30 @@ app.post('/api/admin/sync-drive', requireAdmin, async (req, res) => {
     }
 });
 
+// Fix Google Drive folder permissions
+app.post('/api/admin/fix-drive-permissions', requireAdmin, async (req, res) => {
+    try {
+        const success = await annotationDB.driveStorage.fixFolderPermissions();
+        if (success) {
+            res.json({ 
+                success: true, 
+                message: 'Successfully updated folder permissions for lasko.yaron@gmail.com and toothsegproject@gmail.com' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: 'Failed to update permissions - Drive not connected' 
+            });
+        }
+    } catch (error) {
+        console.error('Error fixing Drive permissions:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fix permissions: ' + error.message 
+        });
+    }
+});
+
 // Check Google Drive connection status
 app.get('/api/admin/drive-status', requireAdmin, async (req, res) => {
     try {

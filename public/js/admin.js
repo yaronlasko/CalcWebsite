@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const driveStatusText = document.getElementById('driveStatusText');
     const syncDriveBtn = document.getElementById('syncDriveBtn');
     const viewDriveBtn = document.getElementById('viewDriveBtn');
+    const fixPermissionsBtn = document.getElementById('fixPermissionsBtn');
     
     const imageModal = document.getElementById('imageModal');
     const closeModal = document.getElementById('closeImageModal');
@@ -43,6 +44,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Google Drive external view button
     viewDriveBtn.addEventListener('click', showExternalDriveInfo);
+    
+    // Fix Google Drive permissions button
+    fixPermissionsBtn.addEventListener('click', fixDrivePermissions);
     
     // Modal close handlers
     closeModal.addEventListener('click', () => {
@@ -455,16 +459,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     driveStatusText.style.color = '#28a745';
                     syncDriveBtn.style.display = 'block';
                     viewDriveBtn.style.display = 'block';
+                    fixPermissionsBtn.style.display = 'block';
                 } else if (data.hasCredentials) {
                     driveStatusText.textContent = '⚠️ Configured';
                     driveStatusText.style.color = '#ffc107';
                     syncDriveBtn.style.display = 'block';
                     viewDriveBtn.style.display = 'none';
+                    fixPermissionsBtn.style.display = 'block';
                 } else {
                     driveStatusText.textContent = '❌ Not Setup';
                     driveStatusText.style.color = '#dc3545';
                     syncDriveBtn.style.display = 'none';
                     viewDriveBtn.style.display = 'none';
+                    fixPermissionsBtn.style.display = 'none';
                 }
             })
             .catch(error => {
@@ -581,6 +588,30 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Error getting Drive info:', error);
                 alert('❌ Failed to get Drive info: ' + error.message);
+            });
+    }
+    
+    function fixDrivePermissions() {
+        fixPermissionsBtn.disabled = true;
+        fixPermissionsBtn.textContent = 'Fixing...';
+        
+        fetch('/api/admin/fix-drive-permissions', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Folder permissions fixed!\n\nGranted editor access to:\n• lasko.yaron@gmail.com\n• toothsegproject@gmail.com\n\nYou should now be able to access the folder directly.');
+                } else {
+                    alert('❌ Failed to fix permissions: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error fixing permissions:', error);
+                alert('❌ Failed to fix permissions: ' + error.message);
+            })
+            .finally(() => {
+                fixPermissionsBtn.disabled = false;
+                fixPermissionsBtn.textContent = 'Fix Permissions';
+                checkDriveStatus();
             });
     }
 });
