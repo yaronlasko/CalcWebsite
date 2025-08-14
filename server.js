@@ -367,9 +367,27 @@ app.post('/api/annotations/:imageId', async (req, res) => {
     }
     
     try {
-        // Save annotation file (still save the actual image file)
+        // Extract mask data from request (handle both old and new formats)
+        let base64Data, canvasWidth, canvasHeight;
+        
+        if (typeof maskData === 'object' && maskData.maskData) {
+            // New format: object with dimensions
+            base64Data = maskData.maskData.replace(/^data:image\/png;base64,/, '');
+            canvasWidth = maskData.canvasWidth || 800;
+            canvasHeight = maskData.canvasHeight || 600;
+            console.log(`📊 Processing annotation: ${canvasWidth}x${canvasHeight} canvas`);
+        } else if (typeof maskData === 'string') {
+            // Legacy format: just base64 string
+            base64Data = maskData.replace(/^data:image\/png;base64,/, '');
+            canvasWidth = 800; // Default fallback
+            canvasHeight = 600; // Default fallback
+            console.log(`📊 Processing annotation: legacy format, using default ${canvasWidth}x${canvasHeight}`);
+        } else {
+            throw new Error('Invalid mask data format');
+        }
+
+        // Save annotation file (still save the actual image file for local viewing)
         const annotationPath = path.join(__dirname, 'uploads', 'annotations', `${imageId}-${Date.now()}.png`);
-        const base64Data = maskData.replace(/^data:image\/png;base64,/, '');
         fs.writeFileSync(annotationPath, base64Data, 'base64');
         
         // Function to get original image name

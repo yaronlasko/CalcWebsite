@@ -200,7 +200,12 @@ class AnnotationTool {
     }
     
     getAnnotationData() {
-        return this.annotationCanvas.toDataURL('image/png');
+        return {
+            maskData: this.annotationCanvas.toDataURL('image/png'),
+            canvasWidth: this.annotationCanvas.width,
+            canvasHeight: this.annotationCanvas.height,
+            timestamp: new Date().toISOString()
+        };
     }
     
     destroy() {
