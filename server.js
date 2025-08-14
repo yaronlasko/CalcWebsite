@@ -594,6 +594,39 @@ app.get('/api/admin/export', requireAdmin, async (req, res) => {
     }
 });
 
+// Manual Google Drive sync endpoint
+app.post('/api/admin/sync-drive', requireAdmin, async (req, res) => {
+    try {
+        await annotationDB.backupToGoogleDrive();
+        res.json({ 
+            success: true, 
+            message: 'Successfully synced data to Google Drive' 
+        });
+    } catch (error) {
+        console.error('Error syncing to Google Drive:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to sync to Google Drive: ' + error.message 
+        });
+    }
+});
+
+// Check Google Drive connection status
+app.get('/api/admin/drive-status', requireAdmin, async (req, res) => {
+    try {
+        res.json({
+            connected: annotationDB.driveStorage.isInitialized,
+            folderId: annotationDB.driveStorage.folderId,
+            hasCredentials: !!(process.env.GOOGLE_CREDENTIALS || require('fs').existsSync('./google-credentials.json'))
+        });
+    } catch (error) {
+        res.json({
+            connected: false,
+            error: error.message
+        });
+    }
+});
+
 // Error handling middleware
 app.use((error, req, res, next) => {
     if (error instanceof multer.MulterError) {

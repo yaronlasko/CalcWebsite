@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const annotateCountSpan = document.getElementById('annotateCount');
     const totalCountSpan = document.getElementById('totalCount');
     
+    // Google Drive elements
+    const driveStatusText = document.getElementById('driveStatusText');
+    const syncDriveBtn = document.getElementById('syncDriveBtn');
+    
     const imageModal = document.getElementById('imageModal');
     const closeModal = document.getElementById('closeImageModal');
     const modalImage = document.getElementById('modalImage');
@@ -23,11 +27,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let allAnnotations = { test: [], annotate: [] };
     
-    // Load annotations on page load
+    // Load data on page load
     loadAnnotations();
+    checkDriveStatus();
     
     // Refresh button
-    refreshBtn.addEventListener('click', loadAnnotations);
+    refreshBtn.addEventListener('click', () => {
+        loadAnnotations();
+        checkDriveStatus();
+    });
+    
+    // Google Drive sync button
+    syncDriveBtn.addEventListener('click', syncToGoogleDrive);
     
     // Modal close handlers
     closeModal.addEventListener('click', () => {
@@ -429,4 +440,54 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup admin zoom when modal opens
     setupAdminZoom();
+    
+    // Google Drive functions
+    function checkDriveStatus() {
+        fetch('/api/admin/drive-status')
+            .then(response => response.json())
+            .then(data => {
+                if (data.connected) {
+                    driveStatusText.textContent = '✅ Connected';
+                    driveStatusText.style.color = '#28a745';
+                    syncDriveBtn.style.display = 'block';
+                } else if (data.hasCredentials) {
+                    driveStatusText.textContent = '⚠️ Configured';
+                    driveStatusText.style.color = '#ffc107';
+                    syncDriveBtn.style.display = 'block';
+                } else {
+                    driveStatusText.textContent = '❌ Not Setup';
+                    driveStatusText.style.color = '#dc3545';
+                    syncDriveBtn.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking Drive status:', error);
+                driveStatusText.textContent = '❌ Error';
+                driveStatusText.style.color = '#dc3545';
+            });
+    }
+    
+    function syncToGoogleDrive() {
+        syncDriveBtn.disabled = true;
+        syncDriveBtn.textContent = 'Syncing...';
+        
+        fetch('/api/admin/sync-drive', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Successfully synced to Google Drive!');
+                } else {
+                    alert('❌ Sync failed: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error syncing to Drive:', error);
+                alert('❌ Sync failed: ' + error.message);
+            })
+            .finally(() => {
+                syncDriveBtn.disabled = false;
+                syncDriveBtn.textContent = 'Sync Now';
+                checkDriveStatus();
+            });
+    }
 });

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const GoogleDriveStorage = require('./google-drive-storage');
 
 class AnnotationDatabase {
     constructor(dataDir = './data') {
@@ -7,25 +8,47 @@ class AnnotationDatabase {
         this.annotationsFile = path.join(dataDir, 'annotations.json');
         this.usersFile = path.join(dataDir, 'users.json');
         this.imagesFile = path.join(dataDir, 'images.json');
+        
+        // Initialize Google Drive storage
+        this.driveStorage = new GoogleDriveStorage();
+        
         this.init();
     }
 
-    init() {
+    async init() {
         try {
             // Create data directory if it doesn't exist
             if (!fs.existsSync(this.dataDir)) {
                 fs.mkdirSync(this.dataDir, { recursive: true });
             }
 
-            // Initialize JSON files if they don't exist
+            // Try to restore data from Google Drive first
+            console.log('🔄 Attempting to restore data from Google Drive...');
+            const remoteData = await this.driveStorage.restoreAll();
+            
+            if (remoteData.annotations.length > 0 || Object.keys(remoteData.users).length > 0) {
+                // Restore from Google Drive
+                this.writeJSONFile(this.annotationsFile, remoteData.annotations);
+                this.writeJSONFile(this.usersFile, remoteData.users);
+                this.writeJSONFile(this.imagesFile, remoteData.images);
+                console.log('✅ Data restored from Google Drive');
+                console.log(`📊 Restored: ${remoteData.annotations.length} annotations, ${Object.keys(remoteData.users).length} users`);
+            } else {
+                // Initialize with empty data
+                this.initializeFile(this.annotationsFile, []);
+                this.initializeFile(this.usersFile, {});
+                this.initializeFile(this.imagesFile, {});
+                console.log('📁 No remote data found - initialized with empty data');
+            }
+            
+            console.log('✅ Connected to JSON file database with Google Drive backup');
+        } catch (err) {
+            console.error('Error initializing database:', err);
+            // Fallback to local initialization
             this.initializeFile(this.annotationsFile, []);
             this.initializeFile(this.usersFile, {});
             this.initializeFile(this.imagesFile, {});
-            
-            console.log('✅ Connected to JSON file database');
-        } catch (err) {
-            console.error('Error initializing database:', err);
-            throw err;
+            console.log('⚠️  Initialized with local storage only');
         }
     }
 
@@ -92,11 +115,29 @@ class AnnotationDatabase {
             // Update image stats
             this.updateImageStats(imageId);
             
+            // Backup to Google Drive (async, don't wait for it)
+            this.backupToGoogleDrive().catch(err => {
+                console.error('⚠️  Google Drive backup failed:', err.message);
+            });
+            
             console.log(`✅ Annotation saved with ID: ${newAnnotation.id}`);
             return newAnnotation.id;
         } catch (err) {
             console.error('Error saving annotation:', err);
             throw err;
+        }
+    }
+
+    async backupToGoogleDrive() {
+        try {
+            const annotations = this.readJSONFile(this.annotationsFile, []);
+            const users = this.readJSONFile(this.usersFile, {});
+            const images = this.readJSONFile(this.imagesFile, {});
+            
+            await this.driveStorage.backupAll(annotations, users, images);
+            console.log('☁️  Data backed up to Google Drive');
+        } catch (error) {
+            console.error('❌ Google Drive backup error:', error.message);
         }
     }
 
