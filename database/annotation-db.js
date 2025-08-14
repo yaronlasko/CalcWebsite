@@ -73,7 +73,7 @@ class AnnotationDatabase {
         }
     }
 
-    saveAnnotation(annotationData) {
+    async saveAnnotation(annotationData) {
         const {
             imageId,
             userId,
@@ -84,52 +84,58 @@ class AnnotationDatabase {
         } = annotationData;
 
         try {
-            // Firebase-first approach: Save to Firebase ONLY
-            if (this.firebaseStorage.isInitialized) {
-                console.log('🔥 Saving annotation to Firebase (primary storage)...');
+            // Try Firebase first if available
+            let firebaseSuccess = false;
+            
+            if (this.firebaseStorage && this.firebaseStorage.isInitialized) {
+                console.log('🔥 Attempting to save annotation to Firebase...');
                 
-                return this.firebaseStorage.saveAnnotation(annotationData)
-                    .then(firebaseId => {
-                        if (firebaseId) {
-                            console.log(`✅ Annotation saved to Firebase with ID: ${firebaseId}`);
-                            return firebaseId;
-                        } else {
-                            throw new Error('Firebase save failed - no ID returned');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('❌ Firebase save error:', err.message);
-                        throw new Error(`Firebase save failed: ${err.message}`);
-                    });
+                try {
+                    const firebaseId = await this.firebaseStorage.saveAnnotation(annotationData);
+                    if (firebaseId && firebaseId !== false) {
+                        console.log(`✅ Annotation saved to Firebase with ID: ${firebaseId}`);
+                        firebaseSuccess = true;
+                    }
+                } catch (firebaseError) {
+                    console.error('⚠️ Firebase save failed:', firebaseError.message);
+                }
             } else {
-                // Only use local storage if Firebase is not available
-                console.log('⚠️ Firebase not connected - saving locally (will be lost on restart)');
-                
-                const annotations = this.readJSONFile(this.annotationsFile, []);
-                
-                const newAnnotation = {
-                    id: Date.now() + Math.random(),
-                    image_id: imageId,
-                    user_id: userId,
-                    timestamp: new Date().toISOString(),
-                    source: source,
-                    original_image: originalImage,
-                    annotation_data: JSON.stringify(data),
-                    mask_filename: maskFilename,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-
-                annotations.push(newAnnotation);
-                this.writeJSONFile(this.annotationsFile, annotations);
-                this.updateUserStats(userId);
-                this.updateImageStats(imageId);
-                
-                console.log(`⚠️ Annotation saved locally only with ID: ${newAnnotation.id}`);
-                return Promise.resolve(newAnnotation.id);
+                console.log('⚠️ Firebase not connected, using local storage only...');
             }
+            
+            // Always save locally (either as backup or primary)
+            console.log('💾 Saving annotation to local storage...');
+            
+            const annotations = this.readJSONFile(this.annotationsFile, []);
+            
+            const newAnnotation = {
+                id: Date.now() + Math.random(),
+                image_id: imageId,
+                user_id: userId,
+                timestamp: new Date().toISOString(),
+                source: source,
+                original_image: originalImage,
+                annotation_data: JSON.stringify(data),
+                mask_filename: maskFilename,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            annotations.push(newAnnotation);
+            this.writeJSONFile(this.annotationsFile, annotations);
+            this.updateUserStats(userId);
+            this.updateImageStats(imageId);
+            
+            if (firebaseSuccess) {
+                console.log(`✅ Annotation saved to both Firebase and local storage with ID: ${newAnnotation.id}`);
+            } else {
+                console.log(`✅ Annotation saved to local storage with ID: ${newAnnotation.id}`);
+            }
+            
+            return newAnnotation.id;
+            
         } catch (err) {
-            console.error('Error saving annotation:', err);
+            console.error('❌ Error saving annotation:', err.message);
             throw err;
         }
     }
