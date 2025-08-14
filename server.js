@@ -640,6 +640,30 @@ app.post('/api/admin/fix-drive-permissions', requireAdmin, async (req, res) => {
     }
 });
 
+// Test endpoint to create test annotation and verify backup
+app.post('/api/admin/test-backup', requireAdmin, async (req, res) => {
+    try {
+        const success = await annotationDB.createTestAnnotation();
+        if (success) {
+            res.json({ 
+                success: true, 
+                message: 'Test annotation created and backed up to Google Drive!' 
+            });
+        } else {
+            res.status(500).json({ 
+                success: false, 
+                error: 'Failed to create test annotation' 
+            });
+        }
+    } catch (error) {
+        console.error('Error creating test annotation:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'Failed to create test: ' + error.message 
+        });
+    }
+});
+
 // Check Google Drive connection status
 app.get('/api/admin/drive-status', requireAdmin, async (req, res) => {
     try {

@@ -115,12 +115,17 @@ class AnnotationDatabase {
             // Update image stats
             this.updateImageStats(imageId);
             
-            // Backup to Google Drive (async, don't wait for it)
-            this.backupToGoogleDrive().catch(err => {
-                console.error('⚠️  Google Drive backup failed:', err.message);
-            });
-            
             console.log(`✅ Annotation saved with ID: ${newAnnotation.id}`);
+            
+            // Immediate backup to Google Drive (synchronous)
+            this.backupToGoogleDrive()
+                .then(() => {
+                    console.log('☁️  Annotation automatically backed up to Google Drive');
+                })
+                .catch(err => {
+                    console.error('⚠️  Google Drive auto-backup failed:', err.message);
+                });
+            
             return newAnnotation.id;
         } catch (err) {
             console.error('Error saving annotation:', err);
@@ -134,10 +139,40 @@ class AnnotationDatabase {
             const users = this.readJSONFile(this.usersFile, {});
             const images = this.readJSONFile(this.imagesFile, {});
             
+            console.log(`🔄 Backing up to Google Drive: ${annotations.length} annotations, ${Object.keys(users).length} users, ${Object.keys(images).length} images`);
+            
             await this.driveStorage.backupAll(annotations, users, images);
-            console.log('☁️  Data backed up to Google Drive');
+            console.log('☁️  Data backed up to Google Drive successfully');
+            return true;
         } catch (error) {
             console.error('❌ Google Drive backup error:', error.message);
+            return false;
+        }
+    }
+
+    // Create a test annotation to verify backup is working
+    async createTestAnnotation() {
+        if (!this.driveStorage || !this.driveStorage.isInitialized) {
+            console.log('⚠️  Cannot create test - Google Drive not initialized');
+            return false;
+        }
+
+        const testAnnotation = {
+            imageId: 'test-image-1',
+            userId: 999,
+            source: 'test',
+            originalImage: 'test-verification.jpg',
+            annotationData: { test: true, created: new Date().toISOString() },
+            maskFilename: 'test-mask.png'
+        };
+
+        try {
+            const id = this.saveAnnotation(testAnnotation);
+            console.log('✅ Test annotation created with ID:', id);
+            return true;
+        } catch (error) {
+            console.error('❌ Error creating test annotation:', error);
+            return false;
         }
     }
 
@@ -160,6 +195,7 @@ class AnnotationDatabase {
             }
             
             this.writeJSONFile(this.usersFile, users);
+            console.log(`📊 Updated stats for user ${userId}: ${users[userId].total_annotations} total annotations`);
         } catch (err) {
             console.error('Error updating user stats:', err);
         }
@@ -182,6 +218,7 @@ class AnnotationDatabase {
             }
             
             this.writeJSONFile(this.imagesFile, images);
+            console.log(`📊 Updated stats for image ${imageId}: ${images[imageId].annotation_count} annotations`);
         } catch (err) {
             console.error('Error updating image stats:', err);
         }

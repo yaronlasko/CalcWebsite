@@ -9,9 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Google Drive elements
     const driveStatusText = document.getElementById('driveStatusText');
-    const syncDriveBtn = document.getElementById('syncDriveBtn');
-    const viewDriveBtn = document.getElementById('viewDriveBtn');
-    const fixPermissionsBtn = document.getElementById('fixPermissionsBtn');
+    const driveDetails = document.getElementById('driveDetails');
+    const testBackupBtn = document.getElementById('testBackupBtn');
     
     const imageModal = document.getElementById('imageModal');
     const closeModal = document.getElementById('closeImageModal');
@@ -39,14 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
         checkDriveStatus();
     });
     
-    // Google Drive sync button
-    syncDriveBtn.addEventListener('click', syncToGoogleDrive);
-    
-    // Google Drive external view button
-    viewDriveBtn.addEventListener('click', showExternalDriveInfo);
-    
-    // Fix Google Drive permissions button
-    fixPermissionsBtn.addEventListener('click', fixDrivePermissions);
+    // Test backup button
+    testBackupBtn.addEventListener('click', testBackup);
     
     // Modal close handlers
     closeModal.addEventListener('click', () => {
@@ -449,169 +442,69 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup admin zoom when modal opens
     setupAdminZoom();
     
-    // Google Drive functions
+    // Google Drive status check function
     function checkDriveStatus() {
         fetch('/api/admin/drive-status')
             .then(response => response.json())
             .then(data => {
                 if (data.connected) {
-                    driveStatusText.textContent = '✅ Connected';
+                    driveStatusText.textContent = '✅ Auto-Backup Active';
                     driveStatusText.style.color = '#28a745';
-                    syncDriveBtn.style.display = 'block';
-                    viewDriveBtn.style.display = 'block';
-                    fixPermissionsBtn.style.display = 'block';
+                    driveDetails.textContent = 'Annotations are automatically backed up to Google Drive on every save.';
+                    testBackupBtn.style.display = 'inline-block';
+                    
+                    // Get drive info to show folder link
+                    fetch('/api/admin/drive-info')
+                        .then(res => res.json())
+                        .then(info => {
+                            if (info.success && info.folder && info.folder.link) {
+                                driveDetails.innerHTML = `Auto-backup active. <a href="${info.folder.link}" target="_blank" style="color: #007bff;">📁 View Drive Folder</a>`;
+                            }
+                        })
+                        .catch(() => {}); // Ignore errors for drive info
+                        
                 } else if (data.hasCredentials) {
-                    driveStatusText.textContent = '⚠️ Configured';
+                    driveStatusText.textContent = '⚠️ Credentials Set';
                     driveStatusText.style.color = '#ffc107';
-                    syncDriveBtn.style.display = 'block';
-                    viewDriveBtn.style.display = 'none';
-                    fixPermissionsBtn.style.display = 'block';
+                    driveDetails.textContent = 'Google Drive credentials are configured but connection failed.';
+                    testBackupBtn.style.display = 'none';
                 } else {
-                    driveStatusText.textContent = '❌ Not Setup';
+                    driveStatusText.textContent = '❌ Not Configured';
                     driveStatusText.style.color = '#dc3545';
-                    syncDriveBtn.style.display = 'none';
-                    viewDriveBtn.style.display = 'none';
-                    fixPermissionsBtn.style.display = 'none';
+                    driveDetails.textContent = 'Google Drive backup is not set up. Annotations are only stored locally.';
+                    testBackupBtn.style.display = 'none';
                 }
             })
             .catch(error => {
                 console.error('Error checking Drive status:', error);
                 driveStatusText.textContent = '❌ Error';
                 driveStatusText.style.color = '#dc3545';
+                driveDetails.textContent = 'Could not check Google Drive status.';
             });
     }
     
-    function syncToGoogleDrive() {
-        syncDriveBtn.disabled = true;
-        syncDriveBtn.textContent = 'Syncing...';
+    function testBackup() {
+        testBackupBtn.disabled = true;
+        testBackupBtn.textContent = 'Testing...';
         
-        fetch('/api/admin/sync-drive', { method: 'POST' })
+        fetch('/api/admin/test-backup', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('✅ Successfully synced to Google Drive!');
+                    alert('✅ Test successful!\n\nA test annotation was created and backed up to Google Drive. Check your Drive folder to verify.');
+                    // Refresh annotations to show the new test annotation
+                    loadAnnotations();
                 } else {
-                    alert('❌ Sync failed: ' + (data.error || 'Unknown error'));
+                    alert('❌ Test failed: ' + (data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error syncing to Drive:', error);
-                alert('❌ Sync failed: ' + error.message);
+                console.error('Error testing backup:', error);
+                alert('❌ Test failed: ' + error.message);
             })
             .finally(() => {
-                syncDriveBtn.disabled = false;
-                syncDriveBtn.textContent = 'Sync Now';
-                checkDriveStatus();
-            });
-    }
-    
-    function showExternalDriveInfo() {
-        fetch('/api/admin/drive-info')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && data.folder) {
-                    const folderInfo = data.folder;
-                    const files = data.files || [];
-                    
-                    let filesList = '';
-                    files.forEach(file => {
-                        const sizeKB = file.size ? Math.round(file.size / 1024) + ' KB' : 'Unknown size';
-                        const modifiedDate = new Date(file.modified).toLocaleString();
-                        filesList += `
-                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
-                                <strong>${file.name}</strong><br>
-                                <small>Size: ${sizeKB} | Modified: ${modifiedDate}</small><br>
-                                ${file.link ? `<a href="${file.link}" target="_blank" style="color: #007bff;">📄 View File</a>` : 'File not accessible'}
-                            </div>
-                        `;
-                    });
-                    
-                    const message = `
-                        <div style="text-align: left; max-width: 500px;">
-                            <h3>🔗 External Google Drive Access</h3>
-                            <p><strong>Folder:</strong> ${folderInfo.name}</p>
-                            <p><strong>Created:</strong> ${new Date(folderInfo.created).toLocaleString()}</p>
-                            <p><strong>Last Modified:</strong> ${new Date(folderInfo.modified).toLocaleString()}</p>
-                            
-                            ${folderInfo.link ? `
-                                <p><a href="${folderInfo.link}" target="_blank" style="color: #007bff; font-weight: bold;">
-                                    📁 Open Folder in Google Drive
-                                </a></p>
-                            ` : '<p>⚠️ Folder link not available</p>'}
-                            
-                            <hr>
-                            <h4>📊 Backed Up Files (${files.length}):</h4>
-                            ${filesList || '<p><em>No files found</em></p>'}
-                            
-                            <hr>
-                            <p><strong>Note:</strong> These files contain your annotation data and are automatically synced every time users create annotations.</p>
-                        </div>
-                    `;
-                    
-                    // Create and show custom modal
-                    const modal = document.createElement('div');
-                    modal.style.cssText = `
-                        position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-                        background: rgba(0,0,0,0.5); z-index: 10000; display: flex; 
-                        align-items: center; justify-content: center;
-                    `;
-                    
-                    const content = document.createElement('div');
-                    content.style.cssText = `
-                        background: white; padding: 30px; border-radius: 10px; 
-                        max-height: 80vh; overflow-y: auto; position: relative;
-                        max-width: 600px; width: 90%;
-                    `;
-                    
-                    const closeBtn = document.createElement('button');
-                    closeBtn.innerHTML = '✖';
-                    closeBtn.style.cssText = `
-                        position: absolute; top: 10px; right: 15px; 
-                        background: none; border: none; font-size: 20px; 
-                        cursor: pointer; color: #999;
-                    `;
-                    
-                    content.innerHTML = message;
-                    content.appendChild(closeBtn);
-                    modal.appendChild(content);
-                    document.body.appendChild(modal);
-                    
-                    closeBtn.onclick = () => document.body.removeChild(modal);
-                    modal.onclick = (e) => {
-                        if (e.target === modal) document.body.removeChild(modal);
-                    };
-                    
-                } else {
-                    alert('❌ Could not retrieve Google Drive folder information: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error getting Drive info:', error);
-                alert('❌ Failed to get Drive info: ' + error.message);
-            });
-    }
-    
-    function fixDrivePermissions() {
-        fixPermissionsBtn.disabled = true;
-        fixPermissionsBtn.textContent = 'Fixing...';
-        
-        fetch('/api/admin/fix-drive-permissions', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('✅ Folder permissions fixed!\n\nGranted editor access to:\n• lasko.yaron@gmail.com\n• toothsegproject@gmail.com\n\nYou should now be able to access the folder directly.');
-                } else {
-                    alert('❌ Failed to fix permissions: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(error => {
-                console.error('Error fixing permissions:', error);
-                alert('❌ Failed to fix permissions: ' + error.message);
-            })
-            .finally(() => {
-                fixPermissionsBtn.disabled = false;
-                fixPermissionsBtn.textContent = 'Fix Permissions';
-                checkDriveStatus();
+                testBackupBtn.disabled = false;
+                testBackupBtn.textContent = 'Test Backup';
             });
     }
 });
