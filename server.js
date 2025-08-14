@@ -22,7 +22,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+        secure: false, // Set to false for now to work with Render proxy
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
@@ -452,26 +452,48 @@ app.get('/api/annotations/:imageId', (req, res) => {
 // Admin routes
 app.post('/admin/login', (req, res) => {
     const { username, password } = req.body;
+    console.log('Admin login attempt:', { username, providedPassword: password ? '***' : 'empty' });
+    console.log('Expected credentials:', { expectedUsername: ADMIN_USERNAME, expectedPassword: ADMIN_PASSWORD ? '***' : 'empty' });
     
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         req.session.isAdmin = true;
+        console.log('✅ Admin login successful');
         res.json({ success: true });
     } else {
+        console.log('❌ Admin login failed - invalid credentials');
         res.json({ success: false, error: 'Invalid credentials' });
     }
 });
 
 // Admin middleware
 function requireAdmin(req, res, next) {
+    console.log('Admin middleware check:', { 
+        isAdmin: req.session.isAdmin, 
+        sessionId: req.session.id,
+        hasSession: !!req.session 
+    });
+    
     if (req.session.isAdmin) {
         next();
     } else {
+        console.log('❌ Admin access denied - redirecting to home');
         res.redirect('/');
     }
 }
 
 app.get('/view', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
+
+// Debug endpoint to check admin status
+app.get('/api/admin/status', (req, res) => {
+    res.json({
+        isAdmin: !!req.session.isAdmin,
+        sessionId: req.session.id || 'no-session',
+        hasSession: !!req.session,
+        adminUsername: ADMIN_USERNAME,
+        nodeEnv: process.env.NODE_ENV || 'development'
+    });
 });
 
 app.get('/api/admin/annotations', requireAdmin, async (req, res) => {
