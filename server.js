@@ -7,7 +7,11 @@ const path = require('path');
 const fs = require('fs');
 const session = require('express-session');
 const { spawn } = require('child_process');
+const AnnotationDatabase = require('./database/annotation-db');
 require('dotenv').config();
+
+// Initialize database
+const annotationDB = new AnnotationDatabase();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,7 +21,11 @@ app.use(session({
     secret: process.env.SESSION_SECRET || 'calculus-detection-secret',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false } // Set to true in production with HTTPS
+    cookie: { 
+        secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
 }));
 
 // Admin credentials (in production, use environment variables or database)
@@ -350,7 +358,7 @@ app.get('/api/annotate/images', (req, res) => {
 });
 
 // API endpoints for annotations
-app.post('/api/annotations/:imageId', (req, res) => {
+app.post('/api/annotations/:imageId', async (req, res) => {
     const { imageId } = req.params;
     const { maskData, userId } = req.body;
     
@@ -359,14 +367,37 @@ app.post('/api/annotations/:imageId', (req, res) => {
     }
     
     try {
-        // Save annotation
+        // Save annotation file (still save the actual image file)
         const annotationPath = path.join(__dirname, 'uploads', 'annotations', `${imageId}-${Date.now()}.png`);
-        
-        // Convert base64 to image file
         const base64Data = maskData.replace(/^data:image\/png;base64,/, '');
         fs.writeFileSync(annotationPath, base64Data, 'base64');
         
-        // Update image data
+        // Function to get original image name
+        function getOriginalImageName(imageId) {
+            if (imageId.startsWith('test-')) {
+                const img = testImages.find(img => img.id === imageId);
+                return img ? img.name : '';
+            } else if (imageId.startsWith('annotate-')) {
+                const img = annotateImages.find(img => img.id === imageId);
+                return img ? img.name : '';
+            }
+            return '';
+        }
+        
+        // Prepare annotation data for database
+        const annotationData = {
+            imageId: imageId,
+            userId: userId || 'anonymous',
+            source: imageId.startsWith('test-') ? 'test' : 'annotate',
+            originalImage: getOriginalImageName(imageId),
+            maskData: base64Data, // Store base64 data in database
+            maskFilename: path.basename(annotationPath)
+        };
+        
+        // Save to database
+        const dbResult = await annotationDB.saveAnnotation(annotationData);
+        
+        // Update image data (keep existing functionality)
         let imageIndex = -1;
         let imageArray = null;
         
@@ -388,35 +419,10 @@ app.post('/api/annotations/:imageId', (req, res) => {
             }
         }
         
-        // Function to get original image name
-        function getOriginalImageName(imageId) {
-            if (imageId.startsWith('test-')) {
-                const img = testImages.find(img => img.id === imageId);
-                return img ? img.name : '';
-            } else if (imageId.startsWith('annotate-')) {
-                const img = annotateImages.find(img => img.id === imageId);
-                return img ? img.name : '';
-            }
-            return '';
-        }
-        
-        // Store annotation metadata
-        const annotationData = {
-            imageId: imageId,
-            userId: userId || 'anonymous',
-            timestamp: new Date().toISOString(),
-            filename: path.basename(annotationPath),
-            source: imageId.startsWith('test-') ? 'test' : 'annotate',
-            originalImage: getOriginalImageName(imageId)
-        };
-        
-        // Save annotation metadata
-        const metadataPath = path.join(__dirname, 'uploads', 'annotations', `${imageId}-${Date.now()}.json`);
-        fs.writeFileSync(metadataPath, JSON.stringify(annotationData, null, 2));
-        
         res.json({ 
-            message: 'Annotation saved successfully',
+            message: 'Annotation saved successfully to database',
             annotationPath: annotationPath,
+            databaseId: dbResult.id,
             metadata: annotationData
         });
     } catch (error) {
@@ -468,43 +474,102 @@ app.get('/view', requireAdmin, (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
-app.get('/api/admin/annotations', requireAdmin, (req, res) => {
-    const annotationDir = path.join(__dirname, 'uploads', 'annotations');
-    
-    if (!fs.existsSync(annotationDir)) {
-        return res.json({ test: [], annotate: [] });
-    }
-    
-    const files = fs.readdirSync(annotationDir);
-    const annotations = { test: [], annotate: [] };
-    
-    files.forEach(file => {
-        if (file.endsWith('.json')) {
-            try {
-                const filePath = path.join(annotationDir, file);
-                const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-                
-                if (data.source === 'test') {
-                    annotations.test.push(data);
-                } else if (data.source === 'annotate') {
-                    annotations.annotate.push(data);
-                }
-            } catch (error) {
-                console.error('Error reading annotation file:', file, error);
+app.get('/api/admin/annotations', requireAdmin, async (req, res) => {
+    try {
+        // Get all annotations from database
+        const allAnnotations = await annotationDB.getAllAnnotations();
+        
+        // Group by source
+        const annotations = { 
+            test: [], 
+            annotate: [],
+            annotations: allAnnotations // For monitoring tools
+        };
+        
+        allAnnotations.forEach(annotation => {
+            // Convert database format to expected format
+            const formattedAnnotation = {
+                id: annotation.id,
+                imageId: annotation.image_id,
+                userId: annotation.user_id,
+                timestamp: annotation.timestamp,
+                source: annotation.source,
+                originalImage: annotation.original_image,
+                filename: annotation.mask_filename,
+                path: `/uploads/annotations/${annotation.mask_filename}`
+            };
+            
+            if (annotation.source === 'test') {
+                annotations.test.push(formattedAnnotation);
+            } else if (annotation.source === 'annotate') {
+                annotations.annotate.push(formattedAnnotation);
             }
-        }
-    });
-    
-    // Sort by timestamp (newest first)
-    annotations.test.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    annotations.annotate.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    res.json(annotations);
+        });
+        
+        // Sort by timestamp (newest first)
+        annotations.test.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        annotations.annotate.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        res.json(annotations);
+    } catch (error) {
+        console.error('Error fetching annotations from database:', error);
+        res.status(500).json({ error: 'Failed to fetch annotations: ' + error.message });
+    }
 });
 
 // Admin endpoint to get all test images
 app.get('/api/admin/test-images', requireAdmin, (req, res) => {
     res.json(testImages);
+});
+
+// New database-powered admin endpoints
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+    try {
+        const stats = await annotationDB.getAnnotationStats();
+        const userStats = await annotationDB.getUserStats();
+        
+        res.json({
+            overview: stats,
+            topUsers: userStats.slice(0, 10)
+        });
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        res.status(500).json({ error: 'Failed to fetch stats: ' + error.message });
+    }
+});
+
+app.get('/api/admin/users/:userId/annotations', requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const annotations = await annotationDB.getAnnotationsByUser(userId);
+        
+        res.json({
+            userId,
+            annotations: annotations.map(a => ({
+                id: a.id,
+                imageId: a.image_id,
+                timestamp: a.timestamp,
+                source: a.source,
+                originalImage: a.original_image
+            }))
+        });
+    } catch (error) {
+        console.error('Error fetching user annotations:', error);
+        res.status(500).json({ error: 'Failed to fetch user annotations: ' + error.message });
+    }
+});
+
+app.get('/api/admin/export', requireAdmin, async (req, res) => {
+    try {
+        const annotations = await annotationDB.exportAnnotations();
+        
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="annotations-export-${new Date().toISOString().split('T')[0]}.json"`);
+        res.json(annotations);
+    } catch (error) {
+        console.error('Error exporting annotations:', error);
+        res.status(500).json({ error: 'Failed to export annotations: ' + error.message });
+    }
 });
 
 // Error handling middleware
@@ -525,9 +590,29 @@ app.use((req, res) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Visit http://localhost:${PORT} to view the application`);
+    console.log(`✅ Database initialized and ready`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('\n🛑 Shutting down gracefully...');
+    annotationDB.close();
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n🛑 Shutting down gracefully...');
+    annotationDB.close();
+    server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+    });
 });
 
 module.exports = app;
