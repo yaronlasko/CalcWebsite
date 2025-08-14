@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annotation Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .config {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .config input {
+            width: 100%;
+            max-width: 400px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #218838;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .annotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .annotation-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .annotation-header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .user-badge {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-right: 10px;
+        }
+        .source-badge {
+            background: #6f42c1;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        .annotation-image {
+            width: 100%;
+            max-width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .annotation-details {
+            margin-top: 10px;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .hidden {
+            display: none;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 300px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .filter-tabs {
+            margin: 20px 0;
+        }
+        .filter-tab {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-right: 5px;
+            display: inline-block;
+        }
+        .filter-tab.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .stats-bar {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-item {
+            display: inline-block;
+            margin: 0 20px;
+        }
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 Annotation Viewer</h1>
+        <p>View and search all your annotations</p>
+    </div>
+
+    <div class="config">
+        <h3>🔧 Configuration</h3>
+        <input type="text" id="renderUrl" placeholder="https://your-app.onrender.com" value="https://calculus-detection.onrender.com">
+        <br>
+        <button class="btn" onclick="loadAnnotations()">📋 Load Annotations</button>
+        <button class="btn btn-secondary" onclick="exportAnnotations()">💾 Export All</button>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+
+    <div class="stats-bar" id="statsBar" style="display: none;">
+        <div class="stat-item">
+            <div class="stat-number" id="totalCount">0</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="testCount">0</div>
+            <div class="stat-label">Test</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="annotateCount">0</div>
+            <div class="stat-label">Annotate</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="userCount">0</div>
+            <div class="stat-label">Users</div>
+        </div>
+    </div>
+
+    <div style="display: none;" id="controlsSection">
+        <input type="text" id="searchBox" class="search-box" placeholder="Search by user, image name..." onkeyup="filterAnnotations()">
+        
+        <div class="filter-tabs">
+            <div class="filter-tab active" data-filter="all" onclick="setFilter('all')">All</div>
+            <div class="filter-tab" data-filter="test" onclick="setFilter('test')">Test</div>
+            <div class="filter-tab" data-filter="annotate" onclick="setFilter('annotate')">Annotate</div>
+        </div>
+    </div>
+
+    <div class="annotations-grid" id="annotationsGrid">
+        <p>Click "Load Annotations" to view your data...</p>
+    </div>
+
+    <script>
+        let allAnnotations = [];
+        let currentFilter = 'all';
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function authenticate() {
+            const url = document.getElementById('renderUrl').value;
+            
+            try {
+                const response = await fetch(`${url}/admin/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ 
+                        username: 'admin', 
+                        password: 'admin123' 
+                    })
+                });
+
+                const data = await response.json();
+                return data.success;
+            } catch (error) {
+                console.error('Auth error:', error);
+                return false;
+            }
+        }
+
+        async function loadAnnotations() {
+            const url = document.getElementById('renderUrl').value;
+            
+            if (!url) {
+                showStatus('Please enter your Render app URL', 'error');
+                return;
+            }
+
+            showStatus('Loading annotations...', 'info');
+
+            try {
+                const authenticated = await authenticate();
+                if (!authenticated) {
+                    showStatus('Authentication failed. Check your credentials.', 'error');
+                    return;
+                }
+
+                const response = await fetch(`${url}/api/admin/annotations`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                allAnnotations = data.annotations || [...(data.test || []), ...(data.annotate || [])];
+                
+                updateStats();
+                displayAnnotations();
+                document.getElementById('controlsSection').style.display = 'block';
+                document.getElementById('statsBar').style.display = 'block';
+
+                showStatus(`Loaded ${allAnnotations.length} annotations`, 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function updateStats() {
+            const testAnnotations = allAnnotations.filter(a => a.source === 'test');
+            const annotateAnnotations = allAnnotations.filter(a => a.source === 'annotate');
+            const uniqueUsers = new Set(allAnnotations.map(a => a.userId || a.user_id)).size;
+
+            document.getElementById('totalCount').textContent = allAnnotations.length;
+            document.getElementById('testCount').textContent = testAnnotations.length;
+            document.getElementById('annotateCount').textContent = annotateAnnotations.length;
+            document.getElementById('userCount').textContent = uniqueUsers;
+        }
+
+        function displayAnnotations() {
+            const filtered = getFilteredAnnotations();
+            const grid = document.getElementById('annotationsGrid');
+
+            if (filtered.length === 0) {
+                grid.innerHTML = '<p>No annotations match your current filter/search.</p>';
+                return;
+            }
+
+            const html = filtered.map(annotation => `
+                <div class="annotation-card">
+                    <div class="annotation-header">
+                        <span class="user-badge">User ${annotation.userId || annotation.user_id || 'Unknown'}</span>
+                        <span class="source-badge">${annotation.source || 'unknown'}</span>
+                    </div>
+                    
+                    <div class="annotation-details">
+                        <strong>Image:</strong> ${annotation.originalImage || annotation.original_image || 'Unknown'}<br>
+                        <strong>Date:</strong> <span class="timestamp">${new Date(annotation.timestamp).toLocaleString()}</span><br>
+                        <strong>ID:</strong> ${annotation.id || annotation.imageId || 'N/A'}
+                    </div>
+                    
+                    ${annotation.path ? `
+                        <div style="margin-top: 10px;">
+                            <img src="${document.getElementById('renderUrl').value}${annotation.path}" 
+                                 class="annotation-image" 
+                                 alt="Annotation" 
+                                 onclick="window.open('${document.getElementById('renderUrl').value}${annotation.path}', '_blank')"
+                                 onerror="this.style.display='none'">
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            grid.innerHTML = html;
+        }
+
+        function getFilteredAnnotations() {
+            let filtered = allAnnotations;
+
+            // Apply source filter
+            if (currentFilter !== 'all') {
+                filtered = filtered.filter(a => a.source === currentFilter);
+            }
+
+            // Apply search filter
+            const searchTerm = document.getElementById('searchBox')?.value?.toLowerCase() || '';
+            if (searchTerm) {
+                filtered = filtered.filter(a => 
+                    (a.userId || a.user_id || '').toString().toLowerCase().includes(searchTerm) ||
+                    (a.originalImage || a.original_image || '').toLowerCase().includes(searchTerm) ||
+                    (a.imageId || '').toLowerCase().includes(searchTerm)
+                );
+            }
+
+            return filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            
+            // Update tab appearance
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+            
+            displayAnnotations();
+        }
+
+        function filterAnnotations() {
+            displayAnnotations();
+        }
+
+        async function exportAnnotations() {
+            const url = document.getElementById('renderUrl').value;
+            
+            if (!url) {
+                showStatus('Please enter your Render app URL', 'error');
+                return;
+            }
+
+            try {
+                const authenticated = await authenticate();
+                if (!authenticated) {
+                    showStatus('Authentication failed', 'error');
+                    return;
+                }
+
+                showStatus('Exporting annotations...', 'info');
+
+                const response = await fetch(`${url}/api/admin/export`, {
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = downloadUrl;
+                a.download = `annotations-export-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+
+                showStatus('Annotations exported successfully', 'success');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`Export failed: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
